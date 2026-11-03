@@ -1,6 +1,6 @@
 // One place to talk to the AI.
 // With no key, it uses Pollinations' free public endpoint (no account, no key; OpenAI-compatible).
-// With a key in OVERWATCH/.env (AI_API_KEY=gsk_...), it uses Groq's free tier instead, which is
+// With a key in .env (next to this file) (AI_API_KEY=gsk_...), it uses Groq's free tier instead, which is
 // faster and has higher limits. On GitHub, add the same value as a repository secret named AI_API_KEY.
 // Any OpenAI-compatible provider works by also setting AI_BASE_URL and AI_MODEL.
 

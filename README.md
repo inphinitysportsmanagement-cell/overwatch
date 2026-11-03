@@ -1,4 +1,4 @@
-# OVERWATCH
+# JNMC: Jewish Network for Media Correctness
 
 News · Intel · Odds, Israel only. Every story about Israel, Gaza and the hostages, Iran and its proxies, and antisemitism, from 39 outlets across the political spectrum, plus live Polymarket odds for the region.
 

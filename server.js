@@ -1,4 +1,4 @@
-// OVERWATCH — news, intel & odds. Zero dependencies.
+// JNMC (Jewish Network for Media Correctness): Israel news, bias checks & odds. Zero dependencies.
 //   node server.js          → local site on :7811, rebuilds each edition automatically
 //   node server.js --build  → build public/edition.json once and exit (used by the GitHub Action)
 // Editions run 3x a day (06:00, 12:00, 18:00 in the TZ the process runs in — Israel time in CI).
@@ -395,5 +395,5 @@ function serve() {
       res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
       res.end(data);
     });
-  }).listen(PORT, () => console.log(`OVERWATCH running → http://localhost:${PORT}`));
+  }).listen(PORT, () => console.log(`JNMC running → http://localhost:${PORT}`));
 }
