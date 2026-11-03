@@ -278,6 +278,51 @@ if (process.argv.includes('--build')) {
   serve();
 }
 
+// ---------- article text for the Bias Scanner (local server only) ----------
+
+const BLOCKED_HOST = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|0\.|\[?::1\]?$|169\.254\.)/;
+
+async function extractArticle(raw) {
+  const url = new URL(raw);
+  if (!/^https?:$/.test(url.protocol) || BLOCKED_HOST.test(url.hostname)) throw new Error('That link can\'t be scanned.');
+  const res = await fetch(url.href, {
+    headers: { 'User-Agent': UA, Accept: 'text/html,application/xhtml+xml', 'Accept-Language': 'en-US,en;q=0.9' },
+    redirect: 'follow', signal: AbortSignal.timeout(20000),
+  });
+  if (!res.ok) throw new Error(res.status === 403 || res.status === 401 ? 'That site blocks automatic reading. Paste the text instead.' : `The site answered HTTP ${res.status}.`);
+  const html = await res.text();
+  const meta = name => decode((html.match(new RegExp(`<meta[^>]+(?:property|name)="${name}"[^>]+content="([^"]*)"`, 'i')) || [])[1] || '');
+  const clean = h => h.replace(/<(script|style|noscript|nav|footer|aside|figure|form)[\s\S]*?<\/\1>/gi, ' ');
+  const seen = new Set();
+  const paras = h => (h.match(/<p[\s>][\s\S]*?<\/p>/gi) || []).map(p => strip(p))
+    .filter(t => t.length >= 40 && !/^(advertisement|sign up|subscribe|read more|related:|click here)/i.test(t));
+
+  // Where the text might live, best first: JSON-LD articleBody (made for search engines), a Next.js data
+  // blob (Daily Wire and others), the <article> element, then the whole page.
+  const ldBody = [...html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)]
+    .map(m => { try { return JSON.stringify(JSON.parse(m[1])); } catch { return ''; } })
+    .map(j => (j.match(/"articleBody":"((?:[^"\\]|\\.)*)"/) || [])[1]).find(Boolean);
+  const fromLd = ldBody ? JSON.parse(`"${ldBody}"`).split(/\n+|(?<=[.!?”"])\s{2,}/).map(t => strip(t)).filter(t => t.length >= 40) : [];
+  let fromNext = [];
+  try {
+    const next = JSON.parse((html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/) || [])[1]);
+    const strings = [];
+    (function walk(v) { if (typeof v === 'string') { if (v.includes('<p')) strings.push(v); } else if (v && typeof v === 'object') Object.values(v).forEach(walk); })(next);
+    fromNext = paras(strings.sort((x, y) => y.length - x.length)[0] || '');
+  } catch {}
+  const articleEl = (html.match(/<article[\s>][\s\S]*<\/article>/i) || [''])[0];
+  const candidates = [fromLd, fromNext, paras(clean(articleEl)), paras(clean(html))];
+  const best = candidates.find(c => c.length >= 5) || candidates.sort((x, y) => y.join('').length - x.join('').length)[0];
+  const paragraphs = best.filter(t => !seen.has(t) && seen.add(t));
+  if (paragraphs.length < 2) throw new Error('Couldn\'t find the article text on that page (it may be behind a paywall). Paste the text instead.');
+  return {
+    url: url.href,
+    title: meta('og:title') || strip((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || ''),
+    site: meta('og:site_name') || url.hostname.replace(/^www\./, ''),
+    paragraphs: paragraphs.slice(0, 120),
+  };
+}
+
 // ---------- http (local only) ----------
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.json': 'application/json' };
@@ -285,6 +330,16 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 
 function serve() {
   http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x');
+    if (url.pathname === '/api/article') {
+      try {
+        const art = await extractArticle(url.searchParams.get('url') || '');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(art));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message }));
+      }
+    }
     if (url.pathname === '/edition.json') await ensureEdition().catch(() => {});
     const file = path.join(__dirname, 'public', url.pathname === '/' ? 'index.html' : path.normalize(url.pathname));
     if (!file.startsWith(path.join(__dirname, 'public'))) { res.writeHead(403); return res.end(); }

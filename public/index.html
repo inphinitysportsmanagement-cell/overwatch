@@ -191,6 +191,44 @@
   .srcs { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
   .srcs .bad { color: var(--down); }
   .loading { min-height: 50vh; display: grid; place-items: center; font-family: var(--mono); color: var(--muted); letter-spacing: .2em; }
+  /* bias scanner */
+  .scan { max-width: 860px; }
+  .scan h2 { font-family: var(--serif); font-size: 34px; margin: 4px 0 6px; }
+  .scan .lede { color: var(--muted); margin: 0 0 18px; line-height: 1.5; }
+  .scan-form { display: flex; gap: 8px; }
+  .scan-form input { flex: 1; min-width: 0; padding: 12px 14px; font: inherit; font-size: 15px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); }
+  .scan-form input:focus, .scan textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .scan-form button, .scan .paste button { padding: 12px 18px; background: var(--text); color: #fff; border-radius: 8px; font-weight: 600; }
+  .scan details { margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .scan summary { cursor: pointer; }
+  .scan textarea { width: 100%; min-height: 160px; margin-top: 8px; padding: 12px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); }
+  .scan .paste { display: flex; justify-content: flex-end; margin-top: 8px; }
+  .scan-err { margin-top: 14px; padding: 12px 14px; background: #fdecea; color: var(--down); border-radius: 8px; font-size: 14px; }
+  .scan-res { margin-top: 24px; }
+  .scan-res .src { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .scan-res h3 { font-family: var(--serif); font-size: 24px; line-height: 1.2; margin: 6px 0 16px; }
+  .meter { position: relative; height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--far-left), var(--lean-left) 35%, var(--center) 50%, var(--lean-right) 65%, var(--far-right)); }
+  .meter i { position: absolute; top: -5px; width: 4px; height: 20px; background: var(--text); border-radius: 2px; transform: translateX(-2px); box-shadow: 0 0 0 2px var(--bg); }
+  .meter-labels { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--dim); text-transform: uppercase; margin-top: 6px; }
+  .verdict { font-size: 17px; font-weight: 600; margin: 14px 0 10px; }
+  .counts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .counts button { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; font-weight: 600; background: var(--panel); }
+  .counts button.on { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
+  .counts .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .caveat { font-size: 12.5px; color: var(--dim); margin: 12px 0 0; line-height: 1.5; }
+  .finding { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .finding .tag { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+  .finding .tag.b-left { color: var(--left); } .finding .tag.b-right { color: var(--right); } .finding .tag.b-loaded { color: var(--amber); }
+  .finding blockquote { margin: 6px 0; font-family: var(--serif); font-size: 17px; line-height: 1.45; }
+  .finding .why { font-size: 13px; color: var(--muted); line-height: 1.45; }
+  .finding .why b { color: var(--text); font-weight: 600; }
+  .quoted { font-family: var(--mono); font-size: 10px; color: var(--dim); margin-left: 6px; text-transform: uppercase; }
+  mark.b-left { background: rgba(29,78,216,.13); color: inherit; border-bottom: 2px solid var(--left); }
+  mark.b-right { background: rgba(196,42,28,.12); color: inherit; border-bottom: 2px solid var(--right); }
+  mark.b-loaded { background: rgba(154,91,0,.13); color: inherit; border-bottom: 2px solid var(--amber); }
+  .full-text p { font-family: var(--serif); font-size: 17px; line-height: 1.65; }
+  .scan-loading { margin-top: 24px; font-family: var(--mono); color: var(--muted); letter-spacing: .15em; }
+
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
   .toast.on { opacity: 1; }
 </style>
@@ -237,6 +275,7 @@
 <div class="reader-bg" data-close-reader></div>
 <div class="reader" id="reader" role="dialog" aria-modal="true" aria-label="Article reader"></div>
 
+<script src="scanner.js"></script>
 <script>
 const DESKS = [
   { id: 'front', label: 'Front Page' },
@@ -244,6 +283,7 @@ const DESKS = [
   { id: 'politics', label: 'US Politics' },
   { id: 'osint', label: 'OSINT & Defense' },
   { id: 'shapiro', label: 'Shapiro / Daily Wire' },
+  { id: 'scan', label: 'Bias Scanner' },
 ];
 const TOPICS = ['Israel', 'Iran', 'Gaza', 'Antisemitism', 'Midterms', 'Trump', 'Military', 'Russia/Ukraine', 'China'];
 const ODDS_DESKS = [{ id: 'mideast', label: 'Middle East' }, { id: 'us', label: 'US Politics' }, { id: 'world', label: 'World' }];
@@ -253,7 +293,7 @@ const GOATCOUNTER = 'overwatch-news';
 const LEANS = ['far left', 'left', 'lean left', 'center', 'lean right', 'right', 'far right'];
 const LEAN_COLORS = { 'far left': '#1e2f8a', left: '#1d4ed8', 'lean left': '#5b8def', center: '#6b7280', 'lean right': '#e06055', right: '#c42a1c', 'far right': '#7a1610' };
 
-const state = { desk: load('desk', 'front'), topic: null, oddsDesk: load('oddsDesk', 'mideast'), spinIdx: 0, edition: null, retryAt: 0 };
+const state = { scan: { url: '', loading: false, error: '', result: null, filter: null, full: false }, desk: load('desk', 'front'), topic: null, oddsDesk: load('oddsDesk', 'mideast'), spinIdx: 0, edition: null, retryAt: 0 };
 function load(k, d) { try { return localStorage.getItem('ow.' + k) || d; } catch { return d; } }
 function save(k, v) { try { localStorage.setItem('ow.' + k, v); } catch {} }
 
@@ -285,6 +325,7 @@ function filtered() {
 }
 
 function renderFeed() {
+  if (state.desk === 'scan') return renderScanner();
   const list = filtered();
   if (!list.length) { $('feed').innerHTML = `<div class="empty">No stories on this filter in the current edition.</div>`; return; }
   const withImg = list.filter(a => a.image);
@@ -341,6 +382,102 @@ function renderSpin() {
     <div class="dots">${list.map((_, i) => `<i class="${i === state.spinIdx ? 'on' : ''}"></i>`).join('')}</div>`;
 }
 
+// ---------- Bias Scanner ----------
+
+function markSentence({ sentence, hits }, only) {
+  let out = '', at = 0;
+  for (const h of hits) {
+    if (only && h.side !== only) continue;
+    out += esc(sentence.slice(at, h.start)) + `<mark class="${BiasScanner.SIDES[h.side].cls}" title="${esc(h.note)}">${esc(h.text)}</mark>`;
+    at = h.end;
+  }
+  return out + esc(sentence.slice(at));
+}
+
+function renderScanner() {
+  const sc = state.scan, r = sc.result;
+  let html = `<div class="scan">
+    <div class="kicker"><span class="src">Tool</span></div>
+    <h2>Bias Scanner</h2>
+    <p class="lede">Paste a link to any news article. The scanner goes through it line by line and flags word choices that lean left, lean right, or are loaded either way, and suggests a neutral alternative.</p>
+    <form class="scan-form" id="scanForm"><input id="scanUrl" type="url" inputmode="url" placeholder="https://www.example.com/news/article" value="${esc(sc.url)}" aria-label="Article link"><button type="submit">Scan</button></form>
+    <details${sc.pasteOpen ? ' open' : ''}><summary>Or paste the article text (for paywalled or blocked sites)</summary>
+      <textarea id="scanText" placeholder="Paste the article text here"></textarea>
+      <div class="paste"><button type="button" data-scan-paste>Scan text</button></div></details>`;
+  if (sc.loading) html += `<div class="scan-loading">READING THE ARTICLE…</div>`;
+  if (sc.error) html += `<div class="scan-err">${esc(sc.error)}</div>`;
+  if (r) {
+    const { counts, lean, findings, marked } = r.scan;
+    const shown = findings.filter(f => !sc.filter || f.side === sc.filter);
+    const pos = 50 + lean * 50 * Math.min(1, (counts.left + counts.right) / 4); // few signals → stay near the middle
+    html += `<div class="scan-res">
+      <div class="src">${esc(r.site || 'Pasted text')}</div>
+      ${r.title ? `<h3>${esc(r.title)}</h3>` : ''}
+      <div class="meter"><i style="left:${pos.toFixed(1)}%"></i></div>
+      <div class="meter-labels"><span>Left-coded</span><span>Balanced</span><span>Right-coded</span></div>
+      <div class="verdict">${esc(BiasScanner.leanVerdict(r.scan))}</div>
+      <div class="counts">
+        ${['left', 'right', 'loaded'].map(k => `<button data-scan-filter="${k}" class="${sc.filter === k ? 'on' : ''}"><span class="dot" style="background:var(--${k === 'loaded' ? 'amber' : k})"></span>${BiasScanner.SIDES[k].label}: ${findings.filter(f => f.side === k).length}</button>`).join('')}
+        <button data-scan-full class="${sc.full ? 'on' : ''}">${sc.full ? 'Show flagged lines' : 'Show full article'}</button>
+      </div>
+      <p class="caveat">These are word-choice signals, not a verdict on the whole article. Sometimes the flagged word is the accurate one. Words inside quotation marks are someone else's: they're listed, but don't count toward the lean (${counts.quoted} this time). ${r.paragraphs.length} paragraphs scanned.</p>`;
+    if (sc.full) {
+      html += `<div class="full-text">${marked.map(sents => `<p>${sents.map(x => markSentence(x, sc.filter)).join(' ')}</p>`).join('')}</div>`;
+    } else if (!shown.length) {
+      html += `<div class="empty">Nothing flagged${sc.filter ? ' in this category' : ''}.</div>`;
+    } else {
+      html += shown.map(f => `<div class="finding">
+        <span class="tag ${BiasScanner.SIDES[f.side].cls}">${BiasScanner.SIDES[f.side].label}</span>${f.quoted ? '<span class="quoted">in a quote</span>' : ''}
+        <blockquote>${markSentence({ sentence: f.sentence, hits: [f] })}</blockquote>
+        <div class="why">${esc(f.note)} <b>Neutral:</b> ${esc(f.neutral)}.</div></div>`).join('');
+    }
+    html += `</div>`;
+  }
+  $('feed').innerHTML = html + `</div>`;
+}
+
+async function runScan(url) {
+  const sc = state.scan;
+  Object.assign(sc, { url, loading: true, error: '', result: null, filter: null, full: false });
+  renderScanner();
+  try {
+    const res = await fetch('api/article?url=' + encodeURIComponent(url));
+    const isJson = (res.headers.get('content-type') || '').includes('json');
+    const art = isJson ? await res.json() : { error: 'Link scanning needs the OVERWATCH server, which this copy of the site doesn\'t have. Paste the article text below instead.' };
+    if (art.error) throw new Error(art.error);
+    sc.result = { ...art, scan: BiasScanner.scanText(art.paragraphs) };
+    track('bias-scan', new URL(url).hostname);
+  } catch (err) {
+    sc.error = err.message; sc.pasteOpen = true;
+  }
+  sc.loading = false;
+  renderScanner();
+}
+
+function scanPasted(text) {
+  const paragraphs = text.split(/\n\s*\n|\n/).map(t => t.trim()).filter(t => t.length > 20);
+  if (!paragraphs.length) { state.scan.error = 'Paste some article text first.'; return renderScanner(); }
+  Object.assign(state.scan, { error: '', filter: null, full: false, result: { title: '', site: '', paragraphs, scan: BiasScanner.scanText(paragraphs) } });
+  track('bias-scan', 'pasted');
+  renderScanner();
+}
+
+document.addEventListener('submit', e => {
+  if (e.target.id !== 'scanForm') return;
+  e.preventDefault();
+  const url = $('scanUrl').value.trim();
+  if (!/^https?:\/\/\S+\.\S+/.test(url)) { state.scan.error = 'Enter a full link starting with https://'; return renderScanner(); }
+  runScan(url);
+});
+
+function scanFromReader(link) {
+  closeReader();
+  state.desk = 'scan'; save('desk', 'scan');
+  renderChrome();
+  window.scrollTo({ top: $('desks').offsetTop - 8, behavior: 'smooth' });
+  runScan(link);
+}
+
 // The 7 lean positions laid out on a horseshoe: center at the bottom, far left and far right
 // curling up toward each other at the top.
 function shoePoint(i, cx = 150, cy = 92, r = 74) {
@@ -376,6 +513,7 @@ function openReader(href) {
   const inSite = frameable(a.source);
   $('reader').innerHTML = `
     <div class="reader-bar">${leanPill(a.lean)}<span class="o-src">${esc(a.source)}</span><span class="sp"></span>
+      <button data-scan-link="${esc(a.link)}">Scan for bias</button>
       <a href="${esc(a.link)}" target="_blank" rel="noopener">Open original ↗</a>
       <button data-close-reader aria-label="Close reader">Close ✕</button></div>
     <div class="reader-body">${inSite
@@ -425,6 +563,7 @@ function renderChrome() {
   const slotHour = new Date(e.slot).getHours();
   $('slots').innerHTML = SLOT_HOURS.map(h => `<span class="slot ${h === slotHour ? 'now' : h < slotHour ? 'past' : ''}">${String(h).padStart(2, '0')}:00</span>`).join('');
   $('desks').innerHTML = DESKS.map(d => `<button class="${d.id === state.desk ? 'on' : ''}" data-desk="${d.id}">${d.label}</button>`).join('');
+  $('chips').style.display = state.desk === 'scan' ? 'none' : '';
   $('chips').innerHTML = TOPICS.map(t => `<button class="chip ${t === state.topic ? 'on' : ''}" data-topic="${t}">${t}</button>`).join('');
   const ok = e.sources.filter(s => s.ok).length;
   $('built').textContent = `${e.name} compiled ${new Date(e.builtAt).toLocaleString()} · ${e.articles.length} stories · ${e.odds.length} markets · ${ok}/${e.sources.length} sources online`;
@@ -580,6 +719,10 @@ document.addEventListener('click', e => {
   else if (b.dataset.od) { state.oddsDesk = b.dataset.od; save('oddsDesk', state.oddsDesk); return renderOdds(); }
   else if (b.dataset.spin) { state.spinIdx += +b.dataset.spin; track('spin-flip'); return renderSpin(); }
   else if ('share' in b.dataset) return shareCard();
+  else if (b.dataset.scanLink) return scanFromReader(b.dataset.scanLink);
+  else if (b.dataset.scanFilter) { state.scan.filter = state.scan.filter === b.dataset.scanFilter ? null : b.dataset.scanFilter; return renderScanner(); }
+  else if ('scanFull' in b.dataset) { state.scan.full = !state.scan.full; return renderScanner(); }
+  else if ('scanPaste' in b.dataset) return scanPasted($('scanText').value);
   else return;
   renderChrome(); renderFeed(); window.scrollTo({ top: $('desks').offsetTop - 8, behavior: 'smooth' });
 });
