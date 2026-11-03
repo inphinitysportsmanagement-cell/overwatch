@@ -19,6 +19,8 @@ const config = () => process.env.AI_API_KEY
   : { base: process.env.AI_BASE_URL || 'https://text.pollinations.ai/openai', key: null, model: process.env.AI_MODEL || 'openai' };
 
 const aiAvailable = () => process.env.SPIN_AI !== 'off';
+// The keyless model is small: good at spotting slanted lines, unreliable at saying which side they favor.
+const aiCanJudgeSide = () => !!config().key;
 
 // The keyless endpoint allows one reply every 45 seconds per computer, so requests wait their turn.
 let queue = Promise.resolve();
@@ -64,4 +66,4 @@ async function request(system, user, { maxTokens = 1500, timeout = 90000 } = {},
   return JSON.parse(json || text);
 }
 
-module.exports = { chatJSON, aiAvailable };
+module.exports = { chatJSON, aiAvailable, aiCanJudgeSide };

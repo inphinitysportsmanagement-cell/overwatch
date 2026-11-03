@@ -7,7 +7,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { buildSpinChecks } = require('./spin');
-const { chatJSON, aiAvailable } = require('./ai');
+const { chatJSON, aiAvailable, aiCanJudgeSide } = require('./ai');
 
 const PORT = process.env.PORT || 7811;
 const EDITION_HOURS = [6, 12, 18];
@@ -65,23 +65,24 @@ const SOURCES = [
 ];
 
 // Topics that push a story up the front page. Weight = how much it matters to this reader.
+// The site is Israel-only: a story needs at least one "core" topic to make the edition.
 const INTERESTS = [
-  { tag: 'Israel', weight: 5, re: /\b(israel\w*|idf|netanyahu|knesset|jerusalem|tel aviv|mossad|iron dome)\b/i },
-  { tag: 'Iran', weight: 4, re: /\b(iran\w*|irgc|tehran|khamenei|hezbollah|houthi\w*|lebanon)\b/i },
-  { tag: 'Gaza', weight: 4, re: /\b(gaza|hamas|hostages?|west bank|judea|samaria|rafah)\b/i },
-  { tag: 'Antisemitism', weight: 4, re: /\b(antisemit\w*|anti-semit\w*|jew\w*|synagogue|zionis\w*)\b/i },
-  { tag: 'Shapiro', weight: 6, re: /\b(ben shapiro|shapiro)\b/i },
-  { tag: 'Midterms', weight: 3, re: /\b(midterms?|election|ballot|senate race|house race|polls?|gop|republicans?|democrats?)\b/i },
-  { tag: 'Trump', weight: 2, re: /\b(trump|white house|vance|rubio|hegseth)\b/i },
-  { tag: 'Military', weight: 3, re: /\b(missile|drone|strike|airstrike|navy|pentagon|army|warship|satellite imagery|osint|intelligence)\b/i },
-  { tag: 'Russia/Ukraine', weight: 2, re: /\b(russia\w*|ukrain\w*|putin|zelensky\w*|kremlin)\b/i },
-  { tag: 'China', weight: 2, re: /\b(china|chinese|beijing|taiwan|xi jinping|ccp|pla)\b/i },
+  { tag: 'Israel', weight: 5, core: true, re: /\b(israel\w*|idf|netanyahu|knesset|jerusalem|tel aviv|mossad|iron dome|shin bet)\b/i },
+  { tag: 'Gaza', weight: 4, core: true, re: /\b(gaza\w*|hamas|rafah|khan younis|islamic jihad)\b/i },
+  { tag: 'Hostages', weight: 5, core: true, re: /\b(hostages?|captives?|abducted)\b/i },
+  { tag: 'West Bank', weight: 3, core: true, re: /\b(west bank|judea|samaria|settlers?|settlements?|jenin|nablus|ramallah|palestinian authority)\b/i },
+  { tag: 'Iran', weight: 4, core: true, re: /\b(iran\w*|irgc|tehran|khamenei|ayatollah)\b/i },
+  { tag: 'Hezbollah', weight: 4, core: true, re: /\b(hezbollah|lebanon|lebanese|beirut|nasrallah)\b/i },
+  { tag: 'Houthis', weight: 3, core: true, re: /\b(houthi\w*|yemen\w*|red sea)\b/i },
+  { tag: 'Antisemitism', weight: 4, core: true, re: /\b(antisemit\w*|anti-semit\w*|jews|jewish|synagogues?|zionis\w*)\b/i },
+  { tag: 'Military', weight: 2, re: /\b(missiles?|drones?|airstrikes?|strikes?|navy|warship|satellite imagery|osint|intelligence)\b/i },
+  { tag: 'Shapiro', weight: 3, re: /\b(ben shapiro)\b/i },
 ];
+const isIsraelStory = a => INTERESTS.some(i => i.core && a.tags.includes(i.tag));
 
+// Polymarket tags for the Odds column: the region only.
 const ODDS_TAGS = [
-  { tag: 'israel', desk: 'mideast' }, { tag: 'iran', desk: 'mideast' }, { tag: 'middle-east', desk: 'mideast' },
-  { tag: 'elections', desk: 'us' }, { tag: 'politics', desk: 'us' }, { tag: 'trump', desk: 'us' },
-  { tag: 'geopolitics', desk: 'world' }, { tag: 'ukraine', desk: 'world' }, { tag: 'china', desk: 'world' },
+  { tag: 'israel', desk: 'mideast' }, { tag: 'iran', desk: 'mideast' }, { tag: 'middle-east', desk: 'mideast' }, { tag: 'gaza', desk: 'mideast' },
 ];
 
 // ---------- edition schedule ----------
@@ -259,6 +260,7 @@ async function buildEdition(slot = currentSlot()) {
     .filter(a => !/\b(sponsored|paid (content|post)|advertorial|partner content)\b/i.test(a.title)) // ads dressed as articles
     .filter(a => { const k = a.title.toLowerCase().slice(0, 60); if (seenTitles.has(k)) return false; seenTitles.add(k); return true; })
     .map(a => score(a, now))
+    .filter(isIsraelStory)
     .sort((a, b) => b.score - a.score);
   await dropDeadImages(articles);
 
@@ -308,11 +310,17 @@ Rules:
 - Flag the outlet's own words. Quotes from people only count if the choice of quotes is one-sided (type "sourcing").
 - "quote" must be copied EXACTLY from the numbered paragraph, 4 to 30 words.
 - Don't flag accurate, neutral reporting. A few solid findings beat many weak ones. At most 12.
-- "lean" is "left", "right", or "loaded" (emotive without a clear side). "lean" is which side the framing FAVORS, not which side it is about:
-  - "left" = more sympathetic to Palestinians or critical of Israel, or echoes US progressive/Democratic talking points. Examples: calling Israeli strikes "collective punishment" in the outlet's voice; "claimed" only for Israel's statements; casualty figures without saying who reported them.
-  - "right" = more sympathetic to Israel or critical of Hamas/Iran, or echoes US conservative/Republican talking points. Examples: "pro-Hamas protesters" for all demonstrators; "terror-supporting" in the outlet's voice; "illegal aliens".
-  - The overall "lean" number uses the same direction: negative = favors the left, positive = favors the right.
-Return JSON: {"summary": "2 sentences on the article's overall framing", "lean": integer from -3 (strongly left) to 3 (strongly right), 0 = balanced, "findings": [{"p": paragraph number, "quote": "...", "lean": "left|right|loaded", "type": "word choice|attribution|passive voice|emphasis|sourcing|missing context|opinion as news", "why": "one sentence", "neutral": "a more neutral wording"}], "missing": ["context a fair version would add", at most 3]}`;
+- For each finding, first write "why", then "hurts": the group the OUTLET is criticizing with this wording. Not every group the line mentions: "Israel-hating congresswoman" criticizes the congresswoman (a progressive), so it hurts "us_left", not Israel; "Israel's brutal siege" criticizes Israel, so it hurts "israel". Pick exactly one:
+  "israel" (Israel, the IDF, the Israeli government, Zionists, Jews)
+  "pro_palestinian" (Palestinians, Hamas, Iran and its proxies, pro-Palestinian activists)
+  "us_right" (Republicans, Trump, conservatives)
+  "us_left" (Democrats, progressives, socialists)
+  "none" (emotive or sensational, but not aimed at a side)
+- In "summary", describe who is portrayed how. Do not use the words "left" or "right".
+Return JSON: {"summary": "2 sentences on the article's overall framing", "findings": [{"p": paragraph number, "quote": "...", "why": "one sentence: who this wording criticizes and how", "hurts": "israel|pro_palestinian|us_right|us_left|none", "type": "word choice|attribution|passive voice|emphasis|sourcing|missing context|opinion as news", "neutral": "a more neutral wording"}], "missing": ["context a fair version would add", at most 3]}`;
+
+// Small models mix up "left" and "right", so the AI only says who a line makes look worse and we work out the side here.
+const HURTS_TO_LEAN = { israel: 'left', us_right: 'left', pro_palestinian: 'right', us_left: 'right', none: 'loaded' };
 
 const norm = t => t.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim().toLowerCase();
 
@@ -327,15 +335,21 @@ async function analyzeArticle({ paragraphs = [], source = '', lean = '' }) {
   // Keep only findings whose quote really appears in the article; the AI must not invent lines.
   const findings = (Array.isArray(out.findings) ? out.findings : []).slice(0, 12).map(f => {
     const quote = str(f?.quote, 300);
-    if (!quote || !['left', 'right', 'loaded'].includes(f?.lean)) return null;
+    const lean = HURTS_TO_LEAN[f?.hurts] && (aiCanJudgeSide() ? HURTS_TO_LEAN[f.hurts] : 'loaded');
+    if (!quote || !lean) return null;
     let p = Number(f.p) - 1;
     if (!(kept[p] && norm(kept[p]).includes(norm(quote)))) p = kept.findIndex(t => norm(t).includes(norm(quote)));
     if (p < 0) return null;
-    return { p, quote, lean: f.lean, type: str(f.type, 40) || 'framing', why: str(f.why, 300), neutral: str(f.neutral, 200) };
+    return { p, quote, lean, type: str(f.type, 40) || 'framing', why: str(f.why, 300), neutral: str(f.neutral, 200) };
   }).filter(Boolean);
   return {
     summary: str(out.summary, 500),
-    lean: Math.max(-3, Math.min(3, Math.round(Number(out.lean) || 0))),
+    // Overall lean from the findings: -3 (left) … 3 (right), damped when there are only a few.
+    lean: !aiCanJudgeSide() ? null : (() => {
+      const net = findings.filter(f => f.lean === 'right').length - findings.filter(f => f.lean === 'left').length;
+      const sided = findings.filter(f => f.lean !== 'loaded').length;
+      return Math.max(-3, Math.min(3, Math.round(net * 3 / Math.max(sided, 3))));
+    })(),
     findings,
     missing: (Array.isArray(out.missing) ? out.missing : []).slice(0, 3).map(m => str(m, 200)).filter(Boolean),
     dropped: (Array.isArray(out.findings) ? Math.min(out.findings.length, 12) : 0) - findings.length,
