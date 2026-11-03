@@ -40,7 +40,7 @@ function findClusters(articles, now) {
   const sameEvent = (x, y) => {
     let sum = 0, rare = 0, shared = 0;
     for (const w of x) if (y.has(w)) { const wt = weight(w); sum += wt; shared++; if (wt >= RARE) rare++; }
-    if (shared / Math.min(x.size, y.size) < 0.3) return 0;
+    if (shared / Math.min(x.size, y.size) < 0.4) return 0; // most of the shorter headline's key words must match
     return rare >= 2 || (shared >= 3 && rare >= 1 && sum >= 9) ? sum : 0;
   };
   const used = new Set();
@@ -68,9 +68,12 @@ function findClusters(articles, now) {
   return clusters;
 }
 
+// Words every Israel story shares; a market has to match the story on something more specific.
+const GENERIC = new Set(['israel', 'israeli', 'iran', 'iranian', 'trump', 'us', 'unitedstate', 'netanyahu', 'end', 'year', 'war', 'government', 'election', 'deal', 'agree']);
+
 function matchMarket(cluster, odds) {
-  const kw = new Set(cluster.members.flatMap(m => [...keywords(m.title)]));
-  let best = null, bestHits = 1;
+  const kw = new Set(cluster.members.flatMap(m => [...keywords(m.title)]).filter(w => !GENERIC.has(w)));
+  let best = null, bestHits = 1; // at least two specific words in common
   for (const m of odds) {
     const hits = overlap(keywords(m.title + ' ' + m.outcomes.map(o => o.name).join(' ')), kw);
     if (hits > bestHits) { best = m; bestHits = hits; }
@@ -85,14 +88,14 @@ const byLean = (a, b) => LEAN_ORDER.indexOf(a.lean) - LEAN_ORDER.indexOf(b.lean)
 
 const SYSTEM = `You compare how news outlets covered one event. You only use the headlines and summaries given.
 Rules:
-- Describe framing as facts: what each outlet leads with, includes, or leaves out, and notable word choices. Name outlets.
+- First decide the event: one specific happening (an announcement, attack, vote, poll, report). A different story on a related topic is NOT the same event, even if it shares names or places. List every outlet whose headline is about a different event in "exclude".
+- Describe framing as facts: what each outlet leads with, includes, or leaves out, and notable word choices. Name the outlets; don't describe them as left- or right-leaning.
 - Never say who is right, never use words like "biased", "propaganda", "lie", or "misleading".
 - "confirmed" claims must be stated consistently by at least two outlets from different leans, or attributed in the text to an official statement. Give the basis (which outlets / which official source).
 - "unverified" claims are ones that appear in only one outlet or are disputed between outlets.
 - Do not add any facts that are not in the input.
 - Horseshoe check: if far-left and far-right outlets are both present and frame the event in a similar way (same emphasis or same target), describe that in "horseshoe". Otherwise leave it empty.
-- Some outlets may be about a different event. List those in "exclude" and ignore them.
-Return JSON: {"exclude": ["outlet name", ...], "headline": "neutral 6-12 word description of the event", "spin": "1-2 short sentences on how the framing differs", "confirmed": [{"claim": "...", "basis": "..."}], "unverified": ["..."], "horseshoe": ""}. Max 3 confirmed, max 2 unverified.`;
+Return JSON: {"event": "the one event, in a few words", "exclude": ["outlet name", ...], "headline": "neutral 6-12 word description of the event", "spin": "1-2 short sentences on how the framing differs", "confirmed": [{"claim": "...", "basis": "..."}], "unverified": ["..."], "horseshoe": ""}. Max 3 confirmed, max 2 unverified.`;
 
 async function aiNote(cluster) {
   if (!aiAvailable()) return null;
@@ -105,7 +108,8 @@ async function aiNote(cluster) {
       headline: str(out.headline, 120),
       spin: str(out.spin, 360),
       confirmed: (Array.isArray(out.confirmed) ? out.confirmed : []).slice(0, 3)
-        .map(c => ({ claim: str(c?.claim, 160), basis: str(c?.basis, 80) })).filter(c => c.claim && c.basis),
+        .map(c => ({ claim: str(c?.claim, 160), basis: str(c?.basis, 80) })).filter(c => c.claim && c.basis)
+        .filter((c, i, all) => all.findIndex(x => x.claim === c.claim) === i),
       horseshoe: str(out.horseshoe, 280),
       unverified: (Array.isArray(out.unverified) ? out.unverified : []).slice(0, 2).map(u => str(u, 160)).filter(Boolean),
     };
@@ -130,7 +134,8 @@ async function buildSpinChecks(articles, odds, now = Date.now()) {
       spin: ai?.spin || null,
       confirmed: ai?.confirmed || [],
       unverified: ai?.unverified || [],
-      horseshoe: ai?.horseshoe || null,
+      // A horseshoe note only makes sense when both ends of the spectrum covered the story.
+      horseshoe: c.members.some(m => m.lean === 'far left') && c.members.some(m => m.lean === 'far right') ? ai?.horseshoe || null : null,
       ai: !!ai,
       outlets: c.members.sort(byLean).map(m => ({ source: m.source, lean: m.lean, title: m.title, link: m.link, summary: m.summary, image: m.image, published: m.published })),
       market: matchMarket(c, odds),

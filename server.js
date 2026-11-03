@@ -206,7 +206,9 @@ async function fetchOdds() {
             .sort((a, b) => b.chance - a.chance);
         }
         if (!outcomes.length) continue;
-        const mideast = /israel|iran|gaza|hamas|hezbollah|lebanon|houthi|yemen|syria|saudi|middle east|netanyahu/i.test(e.title);
+        // Israel-only site: keep markets about Israel, its neighbors and enemies; skip parlays ("combo", "X & Y").
+        if (!/israel|iran|gaza|hamas|hezbollah|lebanon|houthi|hormuz|netanyahu|abraham accords|palestin|knesset|west bank|idf/i.test(e.title) || /combo|\s&\s/i.test(e.title)) continue;
+        const mideast = true;
         seen.set(e.id, {
           id: e.id, desk: mideast ? 'mideast' : desk, title: e.title, image: e.icon || e.image, url: `https://polymarket.com/event/${e.slug}`,
           volume24h: Math.round(e.volume24hr || 0), volume: Math.round(e.volume || 0), endDate: e.endDate,

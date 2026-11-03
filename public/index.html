@@ -80,6 +80,7 @@
   .kicker .src { color: var(--muted); font-weight: 700; }
   .kicker .t::before { content: '·'; margin-right: 6px; }
   .tagpill { color: var(--brand); font-weight: 700; }
+  .kind { color: var(--text); font-weight: 800; text-transform: uppercase; font-size: 10.5px; letter-spacing: .04em; }
 
   .lean { padding: 1px 5px; color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
   .lean.far-left { background: var(--far-left); } .lean.left { background: var(--left); } .lean.lean-left { background: var(--lean-left); }
@@ -364,7 +365,7 @@
     <div class="brand"><svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path d="M9 1.5l8 14H1z" fill="#d4111a"/></svg>OVERWATCH</div>
     <div id="built"></div>
     <div class="srcs" id="srcs"></div>
-    <p>Lean labels are approximate, based on common media-bias charts. Spin Check notes are written by AI from headlines and summaries only. Always read the originals.</p>
+    <p>Outlet ratings come from AllSides, or Media Bias/Fact Check where AllSides has none. Headline labels come from a word list that flags left-coded, right-coded and loaded wording; they are signals, not verdicts. Every Side notes are written by AI from headlines and summaries only. Always read the originals.</p>
   </div>
 </footer>
 <div class="toast" id="toast"></div>
@@ -414,7 +415,9 @@ const byLink = new Map();
 const reg = a => { byLink.set(a.link, a); return a.link; };
 
 function kicker(a) {
-  const tag = a.tags?.[0] ? `<span class="tagpill">${esc(a.tags[0])}</span>` : '';
+  const topic = a.tags?.find(t => t !== 'Israel' && t !== 'Military' && t !== 'Shapiro'); // every story is about Israel; show what's more specific
+  const kind = articleKind(a);
+  const tag = (kind ? `<span class="kind">${kind}</span>` : '') + (topic ? `<span class="tagpill">${esc(topic)}</span>` : '');
   return `<div class="kicker">${biasFlag(a)}${tag}<span class="src">${esc(a.source)}</span>${outletPill(a)}<span class="t">${ago(a.published)}</span>${compareFlag(a)}</div>`;
 }
 const imgTag = a => a.image ? `<img src="${esc(a.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="imgFailed(this)">` : '';
@@ -693,8 +696,16 @@ function scanFromReader(link) {
 
 // The headline's own wording is the main signal; the outlet's overall rating is context next to it.
 const headlineScan = a => a._scan ||= BiasScanner.scanText([a.title, a.summary].filter(Boolean));
+// Opinion and analysis pieces are supposed to argue, so slanted wording there means something different.
+function articleKind(a) {
+  if (/[-–—|:]\s*(opinion|comment|op-ed|column|editorial)\s*$|^(opinion|op-ed|comment)\s*[:|]/i.test(a.title) || /\/(opinion|op-ed|commentary|columns?)\//i.test(a.link)) return 'Opinion';
+  if (/[-–—|:]\s*(analysis|explainer)\s*$|^analysis\s*[:|]/i.test(a.title) || /\/analysis\//i.test(a.link)) return 'Analysis';
+  return '';
+}
+const own = (a, where) => headlineScan(a).findings.filter(f => !f.quoted && (where === 'headline' ? f.pi === 0 : f.pi > 0));
 function headlineRead(a) {
-  const { left, right, loaded } = headlineScan(a).counts;
+  const n = side => own(a, 'headline').filter(f => f.side === side).length;
+  const left = n('left'), right = n('right'), loaded = n('loaded');
   if (left && right) return { side: 'mixed', cls: 'b-loaded', label: 'Mixed-wording headline' };
   if (left) return { side: 'left', cls: 'b-left', label: 'Left-coded headline' };
   if (right) return { side: 'right', cls: 'b-right', label: 'Right-coded headline' };
@@ -716,6 +727,7 @@ function outletPill(a) {
 // One line that puts the headline and the outlet together.
 function together(a) {
   const h = headlineRead(a), o = outletSide(a.lean), lean = a.lean;
+  if (articleKind(a) === 'Opinion') return `This is an opinion piece, so it's meant to argue a side. ${h.side === 'neutral' ? 'The headline itself is neutrally worded.' : 'Slanted wording is expected here.'}${lean ? ` The outlet is rated ${lean} overall.` : ''}`;
   if (!o) return h.side === 'neutral' ? 'Neutral wording. This outlet has no lean rating.' : `${h.label.replace(' headline', '')} wording. This outlet has no lean rating to compare it with.`;
   if (h.side === 'neutral') return o === 'center'
     ? 'Neutral wording from a center-rated outlet.'
@@ -732,17 +744,20 @@ const sameStory = a => (state.edition.spin || []).find(c => c.outlets.some(o => 
 const aiByLink = new Map();
 
 function articleCheck(a) {
-  const scan = headlineScan(a), ai = aiByLink.get(a.link);
-  const shown = scan.findings.filter(f => !f.quoted);
+  const ai = aiByLink.get(a.link);
+  const inHead = own(a, 'headline'), inSummary = own(a, 'summary');
+  const quoted = headlineScan(a).findings.filter(f => f.quoted);
+  const finding = f => `<div class="ac-f"><span class="tag ${BiasScanner.SIDES[f.side].cls}">${BiasScanner.SIDES[f.side].label}</span>
+        <div>${markSentence({ sentence: f.sentence, hits: [f] })}</div><small>${esc(f.note)} <b>Neutral:</b> ${esc(f.neutral)}.</small></div>`;
   const cluster = sameStory(a);
   const others = cluster ? cluster.outlets.filter(o => o.link !== a.link) : [];
   return `<details class="ac" open>
     <summary><b>Bias check</b><span>${headlineRead(a).label}${a.lean ? ` · outlet rated ${esc(a.lean)}` : ''}${others.length ? ` · ${cluster.outlets.length} outlets compared` : ''}</span></summary>
     <div class="ac-body">
-      <div class="ac-h">The headline</div>
-      ${shown.length ? shown.map(f => `<div class="ac-f"><span class="tag ${BiasScanner.SIDES[f.side].cls}">${BiasScanner.SIDES[f.side].label}</span>
-        <div>${markSentence({ sentence: f.sentence, hits: [f] })}</div><small>${esc(f.note)} <b>Neutral:</b> ${esc(f.neutral)}.</small></div>`).join('')
-        : `<p class="ac-none">No loaded or one-sided words in the headline or summary.</p>`}
+      <div class="ac-h">The headline${articleKind(a) ? ` · ${articleKind(a).toLowerCase()} piece` : ''}</div>
+      ${inHead.length ? inHead.map(finding).join('') : `<p class="ac-none">No loaded or one-sided words in the headline.</p>`}
+      ${inSummary.length ? `<div class="ac-h">Also in the summary</div>${inSummary.map(finding).join('')}` : ''}
+      ${quoted.length ? `<p class="ac-none">Not counted: ${quoted.map(f => `“${esc(f.text)}”`).join(', ')}, because ${quoted.length === 1 ? "it's" : "they're"} someone else's words (quoted or attributed).</p>` : ''}
       <div class="ac-h">The outlet</div>
       <p class="ac-outlet">${a.lean ? `${outletPill(a)} <b>${esc(a.source)}</b> is rated ${esc(a.lean)} overall${outletRating(a.source).rated ? ` by ${esc(outletRating(a.source).rated)}` : ''}.` : `<b>${esc(a.source)}</b> has no lean rating (it's an OSINT or analysis source).`}</p>
       <p class="ac-together">${esc(together(a))}</p>
@@ -870,7 +885,8 @@ function renderChrome() {
   $('slots').innerHTML = SLOT_HOURS.map(h => `<span class="slot ${h === slotHour ? 'now' : h < slotHour ? 'past' : ''}">${String(h).padStart(2, '0')}:00</span>`).join('');
   $('desks').innerHTML = DESKS.map(d => `<button class="${d.id === state.desk ? 'on' : ''}" data-desk="${d.id}">${d.label}</button>`).join('');
   $('chips').style.display = state.desk === 'scan' ? 'none' : '';
-  $('chips').innerHTML = `<span class="lbl">Trending</span>` + TOPICS.map(t => `<button class="chip ${t === state.topic ? 'on' : ''}" data-topic="${t}">${t}</button>`).join('');
+  $('chips').innerHTML = `<span class="lbl">Trending</span>` + TOPICS.filter(t => e.articles.some(a => a.tags.includes(t))) // no empty topics
+    .map(t => `<button class="chip ${t === state.topic ? 'on' : ''}" data-topic="${t}">${t}</button>`).join('');
   const ok = e.sources.filter(s => s.ok).length;
   $('built').textContent = `${e.name} compiled ${new Date(e.builtAt).toLocaleString()} · ${e.articles.length} stories · ${e.odds.length} markets · ${ok}/${e.sources.length} sources online`;
   $('srcs').innerHTML = e.sources.map(s => `<span class="${s.ok ? '' : 'bad'}">${s.ok ? '●' : '○'} ${esc(s.name)}</span>`).join('');
@@ -900,7 +916,7 @@ async function drawCard(c) {
 
   ctx.font = '700 26px Inter'; ctx.fillStyle = '#15171a';
   ctx.fillText('OVERWATCH', P, P); ctx.fillStyle = '#d4111a';
-  ctx.fillText('SPIN CHECK', P + ctx.measureText('OVERWATCH  ').width, P);
+  ctx.fillText('EVERY SIDE', P + ctx.measureText('OVERWATCH  ').width, P);
   let y = P + 64;
 
   ctx.font = '900 54px Inter'; ctx.fillStyle = '#15171a';
@@ -951,7 +967,7 @@ async function drawCard(c) {
 async function shareCard(i) {
   const c = state.edition.spin[i];
   const blob = await drawCard(c);
-  const file = new File([blob], 'overwatch-spin-check.png', { type: 'image/png' });
+  const file = new File([blob], 'overwatch-every-side.png', { type: 'image/png' });
   track('share-card', c.headline);
   try {
     if (navigator.canShare?.({ files: [file] })) return await navigator.share({ files: [file], title: c.headline, text: `Same story, every side: ${shareUrl()}` });

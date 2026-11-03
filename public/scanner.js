@@ -21,7 +21,7 @@ const BIAS_TERMS = [
   { re: /\bpro-hamas\b/i, side: 'right', note: 'Labeling protesters "pro-Hamas" rather than "pro-Palestinian" assigns them support for the group.', neutral: 'pro-Palestinian' },
   { re: /\b(jihadis?t?s?|islamists?)\b/i, side: 'right', note: 'Religious labels for militants; accurate for some groups, but a framing choice.', neutral: 'name the group' },
   { re: /\b(iranian|tehran|islamic) regime\b|\bthe regime in tehran\b/i, side: 'right', note: '"Regime" implies illegitimacy; common for Iran in right-leaning coverage.', neutral: 'Iranian government' },
-  { re: /\bmassacre[sd]?\b/i, side: 'loaded', note: 'Strongly emotive. Used by every side for its own victims.', neutral: 'attack / killing, with numbers and source' },
+  { re: /(?<!\b(nova|october 7|oct\.? 7|munich|hebron|kfar aza|be'?eri|ma'?alot|sbarro|itamar|fogel)(\s+music festival|\s+festival)?\s+)\bmassacre[sd]?\b(?!\s+site)/i, side: 'loaded', note: 'Strongly emotive. Used by every side for its own victims.', neutral: 'attack / killing, with numbers and source' },
 
   // ---- US politics ----
   { re: /\bundocumented (immigrants?|migrants?|people|workers)\b/i, side: 'left', note: 'Preferred by immigration advocates.', neutral: 'immigrants in the country illegally' },
@@ -45,7 +45,7 @@ const BIAS_TERMS = [
   { re: /\bdog[- ]whistles?\b|\bthreat to (our )?democracy\b|\b(authoritarian|fascist)(s|ism)?\b(?! (regime|government|state) (in|of) (china|russia|iran|north korea))/i, side: 'left', note: 'A charged label applied by the writer to a US political opponent.', neutral: 'say what they said or did' },
   { re: /\bgender-affirming (care|surgery|treatment)\b/i, side: 'left', note: 'Advocates\' term.', neutral: 'medical gender transition' },
   { re: /\breproductive (rights|freedom|health ?care|justice)\b/i, side: 'left', note: 'Advocates\' framing for abortion access.', neutral: 'abortion access' },
-  { re: /\bwithout evidence\b|\bbaseless(ly)?\b|\bfalsely (claimed|said|claims|says|suggested)\b|\bdebunked\b/i, side: 'loaded', note: 'A fact-check verdict in the news copy. Fair when the article shows the evidence; a framing choice when it doesn\'t.', neutral: 'show the evidence' },
+  { re: /\b(claim\w*|said|says|assert\w*|suggest\w*|insist\w*|accus\w*)\b[^.;]{0,60}?\bwithout (providing |offering |citing )?(any )?evidence\b|\bbaseless(ly)?\b|\bfalsely (claimed|said|claims|says|suggested)\b|\bdebunked\b/i, side: 'loaded', note: 'A fact-check verdict in the news copy. Fair when the article shows the evidence; a framing choice when it doesn\'t.', neutral: 'show the evidence' },
   { re: /\b(mobs?|thugs?)\b/i, side: 'loaded', note: 'Dehumanizing word for a group of people. Watch which side gets it.', neutral: 'crowd / protesters' },
   { re: /\bwoke\b/i, side: 'right', note: 'A pejorative used mostly by the right.', neutral: 'name the policy' },
   { re: /\bdemocrat party\b|\bdemocrat-(run|led|controlled)\b/i, side: 'right', note: '"Democrat" as an adjective is a deliberate partisan usage.', neutral: 'Democratic' },
@@ -84,7 +84,8 @@ function splitSentences(text) {
 // opens or closes in another sentence), or right after an attribution like "accused Israel of".
 function quoteRanges(s) {
   const out = [];
-  const re = /["“]([^"“”]{3,})["”]/g;
+  // Double quotes, plus single quotes the way headlines use them: ‘…’ or '…' around words (not apostrophes).
+  const re = /["“]([^"“”]{3,})["”]|‘([^‘’]{3,})’|(?<![\w])'([^']{3,}?)'(?![\w])/g;
   let m;
   while ((m = re.exec(s))) out.push([m.index, m.index + m[0].length]);
   const opens = (s.match(/[“]/g) || []).length, closes = (s.match(/[”]/g) || []).length;
@@ -94,7 +95,7 @@ function quoteRanges(s) {
 }
 
 const ATTRIBUTION_BEFORE = /\b(accus\w*|alleg\w*|claims? (of|that)|charges? (of|that)|called (it )?|calls (it )?|described (it )?as|label(l)?ed (it )?(as )?|branded (it )?(as )?|reading|chant\w*|signs? (saying|reading)|denies|denied|rejects?|rejected|according to)\b[^.;]{0,70}$/i;
-const ATTRIBUTION_AFTER = /^[^.;]{0,40}?,?\s*["”]?\s*(\b[A-Z][\w.'-]*\s?){1,4}(told|said|says|wrote|added|posted|tweeted)\b/;
+const ATTRIBUTION_AFTER = /^[^.;]{0,40}?,?\s*["”]?\s*(\b[A-Z][\w.'-]*\s?){1,4}(told|tells|said|says|wrote|writes|added|posted|tweeted|warns|warned|argues|argued|insists|insisted)\b/;
 
 function attributed(sentence, start, end) {
   return ATTRIBUTION_BEFORE.test(sentence.slice(0, start)) || ATTRIBUTION_AFTER.test(sentence.slice(end));
