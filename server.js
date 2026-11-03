@@ -220,6 +220,23 @@ async function fetchOdds() {
 let edition = null;
 let building = null;
 
+// Feeds sometimes point at placeholder or missing pictures; check each one so the page never leads with a blank.
+async function dropDeadImages(articles) {
+  const urls = [...new Set(articles.map(a => a.image).filter(Boolean))];
+  const dead = new Set();
+  for (let i = 0; i < urls.length; i += 24) {
+    await Promise.all(urls.slice(i, i + 24).map(async u => {
+      try {
+        const r = await fetch(u, { method: 'GET', headers: { 'User-Agent': UA, Range: 'bytes=0-0' }, signal: AbortSignal.timeout(6000) });
+        if (!r.ok || !(r.headers.get('content-type') || 'image').startsWith('image')) dead.add(u);
+        r.body?.cancel().catch(() => {});
+      } catch { dead.add(u); }
+    }));
+  }
+  for (const a of articles) if (dead.has(a.image)) a.image = null;
+  console.log(`[edition] images: ${urls.length - dead.size} ok, ${dead.size} dead`);
+}
+
 async function buildEdition(slot = currentSlot()) {
   const started = Date.now();
   console.log(`[edition] building ${EDITION_NAMES[slot.getHours()]} for ${slot.toDateString()}…`);
@@ -239,9 +256,11 @@ async function buildEdition(slot = currentSlot()) {
   const articles = results
     .flatMap(r => (r.status === 'fulfilled' ? r.value : []))
     .filter(a => now - a.published < 3 * 864e5) // last 3 days
+    .filter(a => !/\b(sponsored|paid (content|post)|advertorial|partner content)\b/i.test(a.title)) // ads dressed as articles
     .filter(a => { const k = a.title.toLowerCase().slice(0, 60); if (seenTitles.has(k)) return false; seenTitles.add(k); return true; })
     .map(a => score(a, now))
     .sort((a, b) => b.score - a.score);
+  await dropDeadImages(articles);
 
   const odds = await fetchOdds();
   const spin = await buildSpinChecks(articles, odds, now);
