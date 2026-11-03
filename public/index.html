@@ -514,7 +514,7 @@ function renderScanner() {
       <div class="meter-labels"><span>Left</span><span>Balanced</span><span>Right</span></div>
       <div class="verdict">Word choice: ${esc(BiasScanner.leanVerdict(r.scan))}</div>
       ${ai.data ? `<div class="verdict ai-verdict"><span class="ai-badge">AI read</span> Framing leans ${esc(leanWord(ai.data.lean))}. ${esc(ai.data.summary)}</div>` : ''}
-      ${ai.loading ? `<div class="scan-loading">AI IS READING EVERY LINE…</div>` : ''}
+      ${ai.loading ? `<div class="scan-loading">The AI is reading every line… this can take up to a minute.</div>` : ''}
       ${ai.error ? `<div class="scan-err">${esc(ai.error)}</div>` : ''}
       ${ai.off ? `<p class="caveat">AI line analysis is off. Add a free AI key to turn it on (see README).</p>` : ''}
       <div class="counts">

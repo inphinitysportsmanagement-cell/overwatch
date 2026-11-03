@@ -1,6 +1,7 @@
-// One place to talk to the AI. Defaults to Groq's free tier (OpenAI-compatible API, no card needed).
-// Put your key in OVERWATCH/.env as:  AI_API_KEY=gsk_...
-// (On GitHub, add the same value as a repository secret named AI_API_KEY.)
+// One place to talk to the AI.
+// With no key, it uses Pollinations' free public endpoint (no account, no key; OpenAI-compatible).
+// With a key in OVERWATCH/.env (AI_API_KEY=gsk_...), it uses Groq's free tier instead, which is
+// faster and has higher limits. On GitHub, add the same value as a repository secret named AI_API_KEY.
 // Any OpenAI-compatible provider works by also setting AI_BASE_URL and AI_MODEL.
 
 const fs = require('fs');
@@ -13,24 +14,38 @@ try {
   }
 } catch {}
 
-const config = () => ({
-  base: process.env.AI_BASE_URL || 'https://api.groq.com/openai/v1',
-  key: process.env.AI_API_KEY,
-  model: process.env.AI_MODEL || 'llama-3.3-70b-versatile',
-});
+const config = () => process.env.AI_API_KEY
+  ? { base: process.env.AI_BASE_URL || 'https://api.groq.com/openai/v1', key: process.env.AI_API_KEY, model: process.env.AI_MODEL || 'llama-3.3-70b-versatile' }
+  : { base: process.env.AI_BASE_URL || 'https://text.pollinations.ai/openai', key: null, model: process.env.AI_MODEL || 'openai' };
 
-const aiAvailable = () => !!config().key && process.env.SPIN_AI !== 'off';
+const aiAvailable = () => process.env.SPIN_AI !== 'off';
 
-async function chatJSON(system, user, { maxTokens = 1500, timeout = 60000 } = {}) {
+// The keyless endpoint allows one reply every 45 seconds per computer, so requests wait their turn.
+let queue = Promise.resolve();
+let lastFree = 0;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function chatJSON(system, user, opts = {}) {
+  if (config().key) return request(system, user, opts);
+  const run = queue.then(async () => {
+    await sleep(Math.max(0, lastFree + 46000 - Date.now()));
+    try { return await request(system, user, opts); } finally { lastFree = Date.now(); }
+  });
+  queue = run.catch(() => {});
+  return run;
+}
+
+async function request(system, user, { maxTokens = 1500, timeout = 90000 } = {}, retried = false) {
   const c = config();
-  if (!c.key) throw new Error('No AI key set (AI_API_KEY).');
-  const res = await fetch(`${c.base}/chat/completions`, {
+  const url = c.base.endsWith('/openai') ? c.base : `${c.base}/chat/completions`; // Pollinations takes the request at /openai itself
+  const res = await fetch(url, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${c.key}`, 'Content-Type': 'application/json' },
+    headers: { ...(c.key && { Authorization: `Bearer ${c.key}` }), 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: c.model,
       temperature: 0.2,
-      max_tokens: maxTokens,
+      // The keyless model has a fixed reply budget and "thinks" before answering, so keep the thinking short.
+      ...(c.key ? { max_tokens: maxTokens } : { reasoning_effort: 'low' }),
       response_format: { type: 'json_object' },
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     }),
@@ -38,10 +53,15 @@ async function chatJSON(system, user, { maxTokens = 1500, timeout = 60000 } = {}
   });
   if (!res.ok) {
     const detail = (await res.text()).slice(0, 200);
+    if (!c.key && !retried && (res.status === 402 || res.status === 429)) { // limit from an earlier run of the server
+      await sleep(46000);
+      return request(system, user, { maxTokens, timeout }, true);
+    }
     throw new Error(res.status === 429 ? 'The free AI limit was hit. Try again in a minute.' : `AI request failed (HTTP ${res.status}): ${detail}`);
   }
   const text = (await res.json()).choices?.[0]?.message?.content || '';
-  return JSON.parse(text);
+  const json = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1); // some models wrap JSON in ```json fences
+  return JSON.parse(json || text);
 }
 
 module.exports = { chatJSON, aiAvailable };

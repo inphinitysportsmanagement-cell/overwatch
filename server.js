@@ -308,7 +308,10 @@ Rules:
 - Flag the outlet's own words. Quotes from people only count if the choice of quotes is one-sided (type "sourcing").
 - "quote" must be copied EXACTLY from the numbered paragraph, 4 to 30 words.
 - Don't flag accurate, neutral reporting. A few solid findings beat many weak ones. At most 12.
-- "lean" is "left", "right", or "loaded" (emotive without a clear side).
+- "lean" is "left", "right", or "loaded" (emotive without a clear side). "lean" is which side the framing FAVORS, not which side it is about:
+  - "left" = more sympathetic to Palestinians or critical of Israel, or echoes US progressive/Democratic talking points. Examples: calling Israeli strikes "collective punishment" in the outlet's voice; "claimed" only for Israel's statements; casualty figures without saying who reported them.
+  - "right" = more sympathetic to Israel or critical of Hamas/Iran, or echoes US conservative/Republican talking points. Examples: "pro-Hamas protesters" for all demonstrators; "terror-supporting" in the outlet's voice; "illegal aliens".
+  - The overall "lean" number uses the same direction: negative = favors the left, positive = favors the right.
 Return JSON: {"summary": "2 sentences on the article's overall framing", "lean": integer from -3 (strongly left) to 3 (strongly right), 0 = balanced, "findings": [{"p": paragraph number, "quote": "...", "lean": "left|right|loaded", "type": "word choice|attribution|passive voice|emphasis|sourcing|missing context|opinion as news", "why": "one sentence", "neutral": "a more neutral wording"}], "missing": ["context a fair version would add", at most 3]}`;
 
 const norm = t => t.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim().toLowerCase();

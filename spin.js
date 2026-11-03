@@ -98,7 +98,7 @@ async function aiNote(cluster) {
   if (!aiAvailable()) return null;
   const input = cluster.members.map(m => `[${m.source} | lean: ${m.lean || 'n/a'}]\nHeadline: ${m.title}\nSummary: ${m.summary}`).join('\n\n');
   try {
-    const out = await chatJSON(SYSTEM, input, { maxTokens: 700, timeout: 45000 });
+    const out = await chatJSON(SYSTEM, input, { maxTokens: 700, timeout: 90000 });
     const str = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
     return {
       exclude: (Array.isArray(out.exclude) ? out.exclude : []).filter(x => typeof x === 'string'),

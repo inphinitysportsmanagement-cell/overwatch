@@ -12,13 +12,15 @@ Sources, topic weights and Polymarket tags are at the top of `server.js`.
 
 ## AI (free)
 
-Spin Check notes and the Bias Scanner's line-by-line AI analysis use [Groq](https://console.groq.com)'s free tier (no card needed).
+Spin Check notes and the Bias Scanner's line-by-line AI analysis work with no setup: without a key they use [Pollinations](https://pollinations.ai)' free public AI (no account), which allows one answer every 45 seconds, so a scan takes up to a minute.
+
+For faster answers, add a free [Groq](https://console.groq.com) key (no card needed):
 
 1. Sign up at console.groq.com, open **API Keys**, and create a key.
 2. Locally: put it in `.env` as `AI_API_KEY=gsk_...` (this file is never committed).
 3. On GitHub: add it as a repository secret named `AI_API_KEY`.
 
-Without a key everything still works; you just don't get the AI notes.
+Set `SPIN_AI=off` to turn the AI off entirely.
 
 ## Bias Scanner
 
