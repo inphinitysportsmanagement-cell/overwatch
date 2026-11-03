@@ -300,7 +300,7 @@ if (process.argv.includes('--build')) {
   ensureEdition(process.argv.includes('--force'))
     .then(e => console.log(`[edition] current: ${e.name} ${new Date(e.slot).toString()}`))
     .catch(err => { console.error('[edition] failed', err); process.exit(1); });
-} else {
+} else if (require.main === module) { // on Vercel, api/*.js load this file for analyzeArticle only
   ensureEdition().catch(err => console.error('[edition] failed', err));
   setInterval(() => ensureEdition().catch(err => console.error('[edition] failed', err)), 60_000); // catches each 6/12/18 rollover
   serve();
@@ -397,3 +397,5 @@ function serve() {
     });
   }).listen(PORT, () => console.log(`JNMC running → http://localhost:${PORT}`));
 }
+
+module.exports = { analyzeArticle };

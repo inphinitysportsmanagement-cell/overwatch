@@ -2,7 +2,7 @@
 
 News · Intel · Odds, Israel only. Every story about Israel, Gaza and the hostages, Iran and its proxies, and antisemitism, from 39 outlets across the political spectrum, plus live Polymarket odds for the region.
 
-A new edition is published at **06:00, 12:00 and 18:00 Israel time** by a GitHub Action (`.github/workflows/editions.yml`) and served on GitHub Pages. No server needed.
+A new edition is published at **06:00, 12:00 and 18:00 Israel time** by a GitHub Action (`.github/workflows/editions.yml`), which saves it to the repo; Vercel redeploys on every push to main.
 
 - **Run locally:** `node server.js` → http://localhost:7811
 - **Build once:** `node server.js --build` (add `--force` to rebuild the current edition)

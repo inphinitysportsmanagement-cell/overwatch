@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "",
+  "outputDirectory": "public",
+  "functions": {
+    "api/analyze.js": { "maxDuration": 60 }
+  },
+  "headers": [
+    { "source": "/edition.json", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+  ]
+}
