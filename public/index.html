@@ -279,7 +279,7 @@
   /* per-article flag + check */
   .flag { font-size: 10.5px; font-weight: 700; padding: 1px 5px; border: 1px solid currentColor; }
   .flag.b-left { color: var(--left); } .flag.b-right { color: var(--right); } .flag.b-loaded { color: var(--amber); }
-  .ac { border-bottom: 1px solid var(--line); background: var(--panel-2); max-height: 46vh; overflow-y: auto; flex: none; }
+  .ac { border-bottom: 1px solid var(--line); background: var(--panel-2); max-height: 58vh; overflow-y: auto; flex: none; }
   .ac summary { cursor: pointer; padding: 12px 16px; display: flex; gap: 10px; align-items: baseline; font-size: 13px; list-style: none; }
   .ac summary::-webkit-details-marker { display: none; }
   .ac summary::after { content: '▾'; margin-left: auto; color: var(--dim); }
@@ -304,6 +304,18 @@
   .ac-actions { display: flex; gap: 8px; margin-top: 12px; }
   .ac-actions .btn { background: #fff; }
   .ac-actions .btn.primary { background: var(--text); }
+
+  /* Every Side list + comparison inside a story */
+  .spin-item { display: block; width: 100%; text-align: left; padding: 12px 0; border-top: 1px solid var(--line); }
+  .spin-item:first-of-type { margin-top: 10px; }
+  .spin-item .spin-title { display: block; margin: 0 0 6px; font-size: 15px; }
+  .spin-item:hover .spin-title { text-decoration: underline; }
+  .spin-leans { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .spin-leans > span:last-child { margin-left: 4px; }
+  .outlet.here { background: #fff; padding: 9px 10px; margin: 0 -10px; }
+  .here-tag { margin-left: auto; font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+  .ac-same .shoe { max-width: 320px; margin: 4px auto 6px; }
+  .flag.cmp { color: var(--text); }
 
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: #fff; padding: 10px 16px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; }
   .toast.on { opacity: 1; }
@@ -373,7 +385,7 @@ const GOATCOUNTER = 'overwatch-news';
 const LEANS = ['far left', 'left', 'lean left', 'center', 'lean right', 'right', 'far right'];
 const LEAN_COLORS = { 'far left': '#1e2f8a', left: '#1d4ed8', 'lean left': '#5b8def', center: '#6b7280', 'lean right': '#e06055', right: '#c42a1c', 'far right': '#7a1610' };
 
-const state = { scan: { url: '', text: '', error: '', result: null, filter: null, full: false, ai: {} }, desk: initialDesk(), topic: null, oddsDesk: load('oddsDesk', 'mideast'), spinIdx: 0, edition: null, retryAt: 0 };
+const state = { scan: { url: '', text: '', error: '', result: null, filter: null, full: false, ai: {} }, desk: initialDesk(), topic: null, oddsDesk: load('oddsDesk', 'mideast'), edition: null, retryAt: 0 };
 // The Bias Check has its own address (#bias-check) so it can be opened and shared as a page.
 function initialDesk() {
   if (location.hash === '#bias-check') return 'scan';
@@ -397,7 +409,7 @@ const reg = a => { byLink.set(a.link, a); return a.link; };
 
 function kicker(a) {
   const tag = a.tags?.[0] ? `<span class="tagpill">${esc(a.tags[0])}</span>` : '';
-  return `<div class="kicker">${tag}${leanPill(a.lean)}<span class="src">${esc(a.source)}</span><span class="t">${ago(a.published)}</span>${biasFlag(a)}</div>`;
+  return `<div class="kicker">${tag}${leanPill(a.lean)}<span class="src">${esc(a.source)}</span><span class="t">${ago(a.published)}</span>${biasFlag(a)}${compareFlag(a)}</div>`;
 }
 const imgTag = a => a.image ? `<img src="${esc(a.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="imgFailed(this)">` : '';
 // A dead image link drops that picture; if it was a top-of-page slot, re-lay out so a story with a working picture leads.
@@ -465,11 +477,11 @@ function renderFeed() {
 const card = a => `<article class="card">${link(a, imgTag(a))}${link(a, `<h3>${esc(a.title)}</h3>`)}${kicker(a)}</article>`;
 const row = a => `<div class="row">${link(a, `<h4>${esc(a.title)}</h4>`)}${kicker(a)}</div>`;
 
-function renderSpin() {
-  const list = state.edition.spin || [];
-  if (!list.length) { $('spin').innerHTML = `<div class="spin-head"><h2>Spin Check</h2></div><div class="empty">No story was covered by both sides this edition.</div>`; return; }
-  state.spinIdx = (state.spinIdx + list.length) % list.length;
-  const c = list[state.spinIdx];
+// Spin Check: the same story from several outlets across the horseshoe. A comparison lives inside the
+// story it belongs to (the reader's Bias check panel); the side column only lists which stories have one.
+
+function spinBody(c, reading) {
+  const i = state.edition.spin.indexOf(c);
   const note = c.spin
     ? `<div class="spin-note"><b>The spin</b>${esc(c.spin)}</div>`
     : `<div class="spin-note plain">Same event, ${c.outlets.length} outlets. Compare what each one leads with.</div>`;
@@ -478,21 +490,36 @@ function renderSpin() {
     ...c.unverified.map(u => `<div class="fact q"><span class="ic">?</span><span>${esc(u)}<small>Unverified</small></span></div>`),
   ].join('');
   const m = c.market;
+  return `${horseshoe(c)}
+    ${c.outlets.map(o => o.link === reading
+      ? `<div class="outlet here"><div class="o-meta">${leanPill(o.lean)}<span class="o-src">${esc(o.source)}</span><span class="here-tag">You're reading this</span></div><div class="o-title">${esc(o.title)}</div></div>`
+      : `<a class="outlet" href="${esc(reg(o))}" target="_blank" rel="noopener" data-read><div class="o-meta">${leanPill(o.lean)}<span class="o-src">${esc(o.source)}</span></div><div class="o-title">${esc(o.title)}</div></a>`).join('')}
+    ${note}
+    ${c.horseshoe ? `<div class="shoe-note"><b>Horseshoe</b>${esc(c.horseshoe)}</div>` : ''}
+    ${facts ? `<div class="facts">${facts}</div>` : ''}
+    ${m ? `<a class="spin-mkt" href="${esc(m.url)}" target="_blank" rel="noopener"><div>${esc(m.title)}${m.outcome ? ` · ${esc(m.outcome)}` : ''}<small>POLYMARKET ${chg(m.change)}</small></div><span class="p">${fmtPct(m.chance)}</span></a>` : ''}
+    <div class="spin-actions"><button class="btn primary" data-share="${i}">Share this comparison</button></div>`;
+}
+
+// The story to open for a comparison: the version from the reader's own feed if there is one.
+const spinLead = c => c.outlets.find(o => state.edition.articles.some(a => a.link === o.link)) || c.outlets[0];
+
+function renderSpin() {
+  const list = state.edition.spin || [];
+  $('spin').hidden = !list.length;
   $('spin').innerHTML = `
-    <div class="spin-head"><div><h2>Spin Check</h2><p class="box-sub">Same story, every side</p></div>
-      <div class="pager"><button data-spin="-1" aria-label="Previous">‹</button>${state.spinIdx + 1}/${list.length}<button data-spin="1" aria-label="Next">›</button></div>
-    </div>
-    <div class="spin-body">
-      <div class="spin-title">${esc(c.headline)}</div>
-      ${horseshoe(c)}
-      ${c.outlets.map(o => `<a class="outlet" href="${esc(reg(o))}" target="_blank" rel="noopener" data-read><div class="o-meta">${leanPill(o.lean)}<span class="o-src">${esc(o.source)}</span></div><div class="o-title">${esc(o.title)}</div></a>`).join('')}
-      ${note}
-      ${c.horseshoe ? `<div class="shoe-note"><b>Horseshoe</b>${esc(c.horseshoe)}</div>` : ''}
-      ${facts ? `<div class="facts">${facts}</div>` : ''}
-      ${m ? `<a class="spin-mkt" href="${esc(m.url)}" target="_blank" rel="noopener"><div>${esc(m.title)}${m.outcome ? ` · ${esc(m.outcome)}` : ''}<small>POLYMARKET ${chg(m.change)}</small></div><span class="p">${fmtPct(m.chance)}</span></a>` : ''}
-      <div class="spin-actions"><button class="btn primary" data-share>Share card</button></div>
-    </div>
-    <div class="dots">${list.map((_, i) => `<i class="${i === state.spinIdx ? 'on' : ''}"></i>`).join('')}</div>`;
+    <div class="spin-head"><div><h2>Every Side</h2><p class="box-sub">Stories we compared across outlets. Open one to see how each side covered it.</p></div></div>
+    ${list.map((c, i) => `<button class="spin-item" data-compare="${i}">
+      <span class="spin-title">${esc(c.headline)}</span>
+      <span class="spin-leans">${c.outlets.map(o => leanPill(o.lean)).join('')}<span>${c.outlets.length} outlets · compare ›</span></span>
+    </button>`).join('')}`;
+}
+
+function openComparison(i) {
+  const c = state.edition.spin[i], lead = spinLead(c);
+  if (!byLink.has(lead.link)) reg(lead);
+  track('spin-open', c.headline);
+  openReader(lead.link);
 }
 
 // ---------- Bias Scanner ----------
@@ -665,6 +692,7 @@ function biasFlag(a) {
   const [cls, label] = left && right ? ['b-loaded', 'Mixed wording'] : left ? ['b-left', 'Left-coded wording'] : right ? ['b-right', 'Right-coded wording'] : ['b-loaded', 'Loaded wording'];
   return `<span class="flag ${cls}" title="Open the story to see which words">${label}</span>`;
 }
+const compareFlag = a => { const c = sameStory(a); return c ? `<span class="flag cmp" title="Open the story to compare">${c.outlets.length} sides compared</span>` : ''; };
 
 const sameStory = a => (state.edition.spin || []).find(c => c.outlets.some(o => o.link === a.link));
 const aiByLink = new Map();
@@ -675,12 +703,12 @@ function articleCheck(a) {
   const cluster = sameStory(a);
   const others = cluster ? cluster.outlets.filter(o => o.link !== a.link) : [];
   return `<details class="ac" open>
-    <summary><b>Bias check</b><span>${shown.length ? `${shown.length} flagged word${shown.length === 1 ? '' : 's'}` : 'Headline looks neutral'}${a.lean ? ` · outlet rated ${esc(a.lean)}` : ''}</span></summary>
+    <summary><b>Bias check</b><span>${shown.length ? `${shown.length} flagged word${shown.length === 1 ? '' : 's'}` : 'Headline looks neutral'}${a.lean ? ` · outlet rated ${esc(a.lean)}` : ''}${others.length ? ` · ${cluster.outlets.length} outlets compared` : ''}</span></summary>
     <div class="ac-body">
       ${shown.length ? shown.map(f => `<div class="ac-f"><span class="tag ${BiasScanner.SIDES[f.side].cls}">${BiasScanner.SIDES[f.side].label}</span>
         <div>${markSentence({ sentence: f.sentence, hits: [f] })}</div><small>${esc(f.note)} <b>Neutral:</b> ${esc(f.neutral)}.</small></div>`).join('')
         : `<p class="ac-none">No loaded or one-sided words in the headline or summary.</p>`}
-      ${others.length ? `<div class="ac-same"><b>Same story, other outlets</b>${others.map(o => `<a href="${esc(reg(o))}" data-read>${leanPill(o.lean)} <span>${esc(o.source)}:</span> ${esc(o.title)}</a>`).join('')}</div>` : ''}
+      ${others.length ? `<div class="ac-same"><b>How every side covered this</b>${spinBody(cluster, a.link)}</div>` : ''}
       ${ai?.data ? `<div class="ac-ai"><span class="ai-badge">AI read</span> ${ai.data.lean != null ? `Leans ${esc(leanWord(ai.data.lean))}. ` : ''}${esc(ai.data.summary)}</div>`
         : ai?.loading ? `<div class="ac-ai">The AI is reading the headline… this can take up to a minute.</div>`
         : ai?.error ? `<div class="scan-err">${esc(ai.error)}</div>` : ''}
@@ -882,8 +910,8 @@ async function drawCard(c) {
   return new Promise(r => cv.toBlob(r, 'image/png'));
 }
 
-async function shareCard() {
-  const c = state.edition.spin[state.spinIdx];
+async function shareCard(i) {
+  const c = state.edition.spin[i];
   const blob = await drawCard(c);
   const file = new File([blob], 'overwatch-spin-check.png', { type: 'image/png' });
   track('share-card', c.headline);
@@ -957,8 +985,8 @@ document.addEventListener('click', e => {
   if (b.dataset.desk) goDesk(b.dataset.desk);
   else if (b.dataset.topic) state.topic = state.topic === b.dataset.topic ? null : b.dataset.topic;
   else if (b.dataset.od) { state.oddsDesk = b.dataset.od; save('oddsDesk', state.oddsDesk); return renderOdds(); }
-  else if (b.dataset.spin) { state.spinIdx += +b.dataset.spin; track('spin-flip'); return renderSpin(); }
-  else if ('share' in b.dataset) return shareCard();
+  else if (b.dataset.compare) return openComparison(+b.dataset.compare);
+  else if (b.dataset.share) return shareCard(+b.dataset.share);
   else if (b.dataset.scanLink) return scanFromReader(b.dataset.scanLink);
   else if (b.dataset.aiCheck) return aiCheckArticle(b.dataset.aiCheck);
   else if (b.dataset.scanFilter) { state.scan.filter = state.scan.filter === b.dataset.scanFilter ? null : b.dataset.scanFilter; return renderScanner(); }
