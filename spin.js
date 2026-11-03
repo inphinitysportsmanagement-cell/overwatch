@@ -9,8 +9,8 @@ const STOP = new Set(('the a an and or but of to in on at for with from by as is
   'against while during between amid near some many most other than then there here when where which per back down ahead') .split(' '));
 const SHORT_KEEP = new Set(['idf', 'us', 'un', 'gop', 'nato', 'irgc', 'uae', 'eu']);
 
-const LEFT = new Set(['left', 'lean left']);
-const RIGHT = new Set(['right', 'lean right']);
+const LEFT = new Set(['far left', 'left', 'lean left']);
+const RIGHT = new Set(['far right', 'right', 'lean right']);
 const MAX_CHECKS = 3;
 
 const PHRASES = /\b(west bank|gaza strip|white house|united states|united nations|new york|tel aviv|red sea|south lebanon|southern lebanon)\b/g;
@@ -79,7 +79,7 @@ function matchMarket(cluster, odds) {
   return { title: best.title, url: best.url, outcome: best.binary ? null : top.name, chance: top.chance, change: top.change };
 }
 
-const LEAN_ORDER = ['left', 'lean left', 'center', 'lean right', 'right', null];
+const LEAN_ORDER = ['far left', 'left', 'lean left', 'center', 'lean right', 'right', 'far right', null];
 const byLean = (a, b) => LEAN_ORDER.indexOf(a.lean) - LEAN_ORDER.indexOf(b.lean);
 
 const SYSTEM = `You compare how news outlets covered one event. You only use the headlines and summaries given.
@@ -89,8 +89,9 @@ Rules:
 - "confirmed" claims must be stated consistently by at least two outlets from different leans, or attributed in the text to an official statement. Give the basis (which outlets / which official source).
 - "unverified" claims are ones that appear in only one outlet or are disputed between outlets.
 - Do not add any facts that are not in the input.
+- Horseshoe check: if far-left and far-right outlets are both present and frame the event in a similar way (same emphasis or same target), describe that in "horseshoe". Otherwise leave it empty.
 - Some outlets may be about a different event. List those in "exclude" and ignore them.
-Return JSON: {"exclude": ["outlet name", ...], "headline": "neutral 6-12 word description of the event", "spin": "1-2 short sentences on how the framing differs", "confirmed": [{"claim": "...", "basis": "..."}], "unverified": ["..."]}. Max 3 confirmed, max 2 unverified.`;
+Return JSON: {"exclude": ["outlet name", ...], "headline": "neutral 6-12 word description of the event", "spin": "1-2 short sentences on how the framing differs", "confirmed": [{"claim": "...", "basis": "..."}], "unverified": ["..."], "horseshoe": ""}. Max 3 confirmed, max 2 unverified.`;
 
 async function aiNote(cluster) {
   const token = process.env.GITHUB_TOKEN;
@@ -117,6 +118,7 @@ async function aiNote(cluster) {
       spin: str(out.spin, 360),
       confirmed: (Array.isArray(out.confirmed) ? out.confirmed : []).slice(0, 3)
         .map(c => ({ claim: str(c?.claim, 160), basis: str(c?.basis, 80) })).filter(c => c.claim && c.basis),
+      horseshoe: str(out.horseshoe, 280),
       unverified: (Array.isArray(out.unverified) ? out.unverified : []).slice(0, 2).map(u => str(u, 160)).filter(Boolean),
     };
   } catch (err) {
@@ -140,8 +142,9 @@ async function buildSpinChecks(articles, odds, now = Date.now()) {
       spin: ai?.spin || null,
       confirmed: ai?.confirmed || [],
       unverified: ai?.unverified || [],
+      horseshoe: ai?.horseshoe || null,
       ai: !!ai,
-      outlets: c.members.sort(byLean).map(m => ({ source: m.source, lean: m.lean, title: m.title, link: m.link })),
+      outlets: c.members.sort(byLean).map(m => ({ source: m.source, lean: m.lean, title: m.title, link: m.link, summary: m.summary, image: m.image, published: m.published })),
       market: matchMarket(c, odds),
     };
   })).then(list => list.filter(Boolean));

@@ -14,7 +14,8 @@ const EDITION_NAMES = { 6: 'Morning Edition', 12: 'Midday Edition', 18: 'Evening
 const CACHE_FILE = path.join(__dirname, 'public', 'edition.json');
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 Chrome/124 Safari/537.36';
 
-// lean: rough placement from common media-bias charts (AllSides / Ad Fontes style), shown as a label only.
+// lean: 7-point horseshoe scale (far left … center … far right), roughly following common media-bias
+// charts (AllSides / Ad Fontes). Shown as a label only.
 // desk 'compare' = outlets used only for Spin Check, not shown in the main feed.
 const SOURCES = [
   // Israel & Middle East
@@ -28,7 +29,7 @@ const SOURCES = [
   { name: 'The Daily Wire', desk: 'politics', lean: 'right', url: 'https://www.dailywire.com/feeds/rss.xml' },
   { name: 'Washington Free Beacon', desk: 'politics', lean: 'right', url: 'https://freebeacon.com/feed/' },
   { name: 'National Review', desk: 'politics', lean: 'right', url: 'https://www.nationalreview.com/feed/' },
-  { name: 'Washington Examiner', desk: 'politics', lean: 'right', url: 'https://www.washingtonexaminer.com/feed' },
+  { name: 'Washington Examiner', desk: 'politics', lean: 'lean right', url: 'https://www.washingtonexaminer.com/feed' },
   { name: 'The Free Press', desk: 'politics', lean: 'center', url: 'https://www.thefp.com/feed' },
   { name: 'New York Post', desk: 'politics', lean: 'lean right', url: 'https://nypost.com/feed/' },
   { name: 'Fox News', desk: 'politics', lean: 'right', url: 'https://moxie.foxnews.com/google-publisher/latest.xml' },
@@ -41,13 +42,25 @@ const SOURCES = [
   { name: 'USNI News', desk: 'osint', url: 'https://news.usni.org/feed' },
   { name: 'Breaking Defense', desk: 'osint', url: 'https://breakingdefense.com/feed/' },
   { name: 'War on the Rocks', desk: 'osint', url: 'https://warontherocks.com/feed/' },
-  // Other side of the spectrum, for Spin Check only
-  { name: 'CNN', desk: 'compare', lean: 'lean left', url: 'http://rss.cnn.com/rss/edition_meast.rss' },
-  { name: 'BBC', desk: 'compare', lean: 'center', url: 'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml' },
-  { name: 'New York Times', desk: 'compare', lean: 'lean left', url: 'https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml' },
-  { name: 'Al Jazeera', desk: 'compare', lean: 'lean left', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
+  // The rest of the horseshoe, for Spin Check only
+  { name: 'Mondoweiss', desk: 'compare', lean: 'far left', url: 'https://mondoweiss.net/feed/' },
+  { name: 'Electronic Intifada', desk: 'compare', lean: 'far left', url: 'https://electronicintifada.net/rss.xml' },
+  { name: 'Drop Site News', desk: 'compare', lean: 'far left', url: 'https://www.dropsitenews.com/feed' },
+  { name: 'Common Dreams', desk: 'compare', lean: 'far left', url: 'https://www.commondreams.org/feeds/feed.rss' },
+  { name: 'The Intercept', desk: 'compare', lean: 'left', url: 'https://theintercept.com/feed/?rss' },
+  { name: 'Democracy Now', desk: 'compare', lean: 'left', url: 'https://www.democracynow.org/democracynow.rss' },
   { name: 'The Guardian', desk: 'compare', lean: 'left', url: 'https://www.theguardian.com/world/israel/rss' },
+  { name: 'CNN', desk: 'compare', lean: 'lean left', url: 'http://rss.cnn.com/rss/edition_meast.rss' },
+  { name: 'New York Times', desk: 'compare', lean: 'lean left', url: 'https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml' },
   { name: 'NPR', desk: 'compare', lean: 'lean left', url: 'https://feeds.npr.org/1004/rss.xml' },
+  { name: 'Al Jazeera', desk: 'compare', lean: 'lean left', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
+  { name: 'BBC', desk: 'compare', lean: 'center', url: 'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml' },
+  { name: 'Axios', desk: 'compare', lean: 'center', url: 'https://www.axios.com/feeds/feed.rss' },
+  { name: 'Daily Caller', desk: 'compare', lean: 'right', url: 'https://dailycaller.com/feed/' },
+  { name: 'The Post Millennial', desk: 'compare', lean: 'right', url: 'https://thepostmillennial.com/feed' },
+  { name: 'The Blaze', desk: 'compare', lean: 'right', url: 'https://www.theblaze.com/feeds/feed.rss' },
+  { name: 'Breitbart', desk: 'compare', lean: 'far right', url: 'https://www.breitbart.com/feed/' },
+  { name: 'American Greatness', desk: 'compare', lean: 'far right', url: 'https://amgreatness.com/feed/' },
 ];
 
 // Topics that push a story up the front page. Weight = how much it matters to this reader.
@@ -125,7 +138,7 @@ async function fetchTelegram(src) {
     const image = (part.match(/message_photo_wrap[^>]+background-image:url\('([^']+)'\)/) || [])[1] || null;
     if (!text || !post) return null;
     const title = text.length > 160 ? text.slice(0, 157).replace(/\s+\S*$/, '') + '…' : text;
-    return { title, summary: text.slice(0, 280), link: `https://t.me/${post}`, image, source: src.name, desk: src.desk, lean: null, published: time ? +new Date(time) : Date.now() };
+    return { title, summary: text.slice(0, 280), link: `https://t.me/${post}`, embed: `https://t.me/${post}?embed=1`, image, source: src.name, desk: src.desk, lean: null, published: time ? +new Date(time) : Date.now() };
   }).filter(Boolean).slice(0, 25);
 }
 
@@ -150,6 +163,17 @@ function score(a, now) {
   a.tags = tags.map(t => t.tag);
   a.score = titleHits * 2 + tags.reduce((s, i) => s + i.weight, 0) + (a.image ? 2 : 0) - hoursOld * 0.6;
   return a;
+}
+
+// Can this outlet's articles be shown inside our page (iframe)? Checked once per source per edition.
+async function canFrame(link) {
+  try {
+    const res = await fetch(link, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(10000) });
+    res.body?.cancel();
+    const xfo = (res.headers.get('x-frame-options') || '').toLowerCase();
+    const fa = ((res.headers.get('content-security-policy') || '').match(/frame-ancestors([^;]*)/i) || [])[1];
+    return res.ok && !xfo && (fa === undefined || /(^|\s)\*(\s|$)/.test(fa));
+  } catch { return false; }
 }
 
 // ---------- Polymarket ----------
@@ -199,7 +223,13 @@ async function buildEdition(slot = currentSlot()) {
   const started = Date.now();
   console.log(`[edition] building ${EDITION_NAMES[slot.getHours()]} for ${slot.toDateString()}…`);
   const results = await Promise.allSettled(SOURCES.map(fetchFeed));
-  const sourceStatus = SOURCES.map((s, i) => ({ name: s.name, desk: s.desk, ok: results[i].status === 'fulfilled', count: results[i].value?.length || 0 }));
+  const sourceStatus = await Promise.all(SOURCES.map(async (s, i) => {
+    const items = results[i].value || [];
+    return {
+      name: s.name, desk: s.desk, lean: s.lean || null, ok: results[i].status === 'fulfilled', count: items.length,
+      frameable: !!s.telegram || (items[0] ? await canFrame(items[0].link) : false), // Telegram uses its embed page
+    };
+  }));
 
   const now = Date.now();
   const seenTitles = new Set();
