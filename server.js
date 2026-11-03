@@ -7,6 +7,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { buildSpinChecks } = require('./spin');
+const { chatJSON, aiAvailable } = require('./ai');
 
 const PORT = process.env.PORT || 7811;
 const EDITION_HOURS = [6, 12, 18];
@@ -54,7 +55,7 @@ const SOURCES = [
   { name: 'New York Times', desk: 'compare', lean: 'lean left', url: 'https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml' },
   { name: 'NPR', desk: 'compare', lean: 'lean left', url: 'https://feeds.npr.org/1004/rss.xml' },
   { name: 'Al Jazeera', desk: 'compare', lean: 'lean left', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
-  { name: 'BBC', desk: 'compare', lean: 'center', url: 'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml' },
+  { name: 'BBC', desk: 'compare', lean: 'center', also: ['bbc.com'], url: 'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml' },
   { name: 'Axios', desk: 'compare', lean: 'center', url: 'https://www.axios.com/feeds/feed.rss' },
   { name: 'Daily Caller', desk: 'compare', lean: 'right', url: 'https://dailycaller.com/feed/' },
   { name: 'The Post Millennial', desk: 'compare', lean: 'right', url: 'https://thepostmillennial.com/feed' },
@@ -227,6 +228,8 @@ async function buildEdition(slot = currentSlot()) {
     const items = results[i].value || [];
     return {
       name: s.name, desk: s.desk, lean: s.lean || null, ok: results[i].status === 'fulfilled', count: items.length,
+      domains: [...new Set([s.url, s.telegram && 'https://t.me', items[0]?.link].filter(Boolean)
+        .map(u => new URL(u).hostname.replace(/^(www|rss|feeds|moxie)\./, '')).concat(s.also || []))],
       frameable: !!s.telegram || (items[0] ? await canFrame(items[0].link) : false), // Telegram uses its embed page
     };
   }));
@@ -278,50 +281,50 @@ if (process.argv.includes('--build')) {
   serve();
 }
 
-// ---------- article text for the Bias Scanner (local server only) ----------
+// ---------- AI line analysis for the Bias Scanner (local server, needs an AI key) ----------
 
-const BLOCKED_HOST = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|0\.|\[?::1\]?$|169\.254\.)/;
+const SCAN_SYSTEM = `You are a media-bias analyst. You read one news article and point out specific lines where the outlet's own framing leans left, leans right, or is loaded. Hold both sides to the same standard: flag pro-Israel or right-leaning framing as readily as pro-Palestinian or left-leaning framing.
+Look for: word choice; attribution asymmetry (one side "said", the other "claimed"); passive voice that hides who acted; selective emphasis or ordering; one-sided sourcing; missing context a reader needs; opinion presented as news.
+Rules:
+- Flag the outlet's own words. Quotes from people only count if the choice of quotes is one-sided (type "sourcing").
+- "quote" must be copied EXACTLY from the numbered paragraph, 4 to 30 words.
+- Don't flag accurate, neutral reporting. A few solid findings beat many weak ones. At most 12.
+- "lean" is "left", "right", or "loaded" (emotive without a clear side).
+Return JSON: {"summary": "2 sentences on the article's overall framing", "lean": integer from -3 (strongly left) to 3 (strongly right), 0 = balanced, "findings": [{"p": paragraph number, "quote": "...", "lean": "left|right|loaded", "type": "word choice|attribution|passive voice|emphasis|sourcing|missing context|opinion as news", "why": "one sentence", "neutral": "a more neutral wording"}], "missing": ["context a fair version would add", at most 3]}`;
 
-async function extractArticle(raw) {
-  const url = new URL(raw);
-  if (!/^https?:$/.test(url.protocol) || BLOCKED_HOST.test(url.hostname)) throw new Error('That link can\'t be scanned.');
-  const res = await fetch(url.href, {
-    headers: { 'User-Agent': UA, Accept: 'text/html,application/xhtml+xml', 'Accept-Language': 'en-US,en;q=0.9' },
-    redirect: 'follow', signal: AbortSignal.timeout(20000),
-  });
-  if (!res.ok) throw new Error(res.status === 403 || res.status === 401 ? 'That site blocks automatic reading. Paste the text instead.' : `The site answered HTTP ${res.status}.`);
-  const html = await res.text();
-  const meta = name => decode((html.match(new RegExp(`<meta[^>]+(?:property|name)="${name}"[^>]+content="([^"]*)"`, 'i')) || [])[1] || '');
-  const clean = h => h.replace(/<(script|style|noscript|nav|footer|aside|figure|form)[\s\S]*?<\/\1>/gi, ' ');
-  const seen = new Set();
-  const paras = h => (h.match(/<p[\s>][\s\S]*?<\/p>/gi) || []).map(p => strip(p))
-    .filter(t => t.length >= 40 && !/^(advertisement|sign up|subscribe|read more|related:|click here)/i.test(t));
+const norm = t => t.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim().toLowerCase();
 
-  // Where the text might live, best first: JSON-LD articleBody (made for search engines), a Next.js data
-  // blob (Daily Wire and others), the <article> element, then the whole page.
-  const ldBody = [...html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)]
-    .map(m => { try { return JSON.stringify(JSON.parse(m[1])); } catch { return ''; } })
-    .map(j => (j.match(/"articleBody":"((?:[^"\\]|\\.)*)"/) || [])[1]).find(Boolean);
-  const fromLd = ldBody ? JSON.parse(`"${ldBody}"`).split(/\n+|(?<=[.!?”"])\s{2,}/).map(t => strip(t)).filter(t => t.length >= 40) : [];
-  let fromNext = [];
-  try {
-    const next = JSON.parse((html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/) || [])[1]);
-    const strings = [];
-    (function walk(v) { if (typeof v === 'string') { if (v.includes('<p')) strings.push(v); } else if (v && typeof v === 'object') Object.values(v).forEach(walk); })(next);
-    fromNext = paras(strings.sort((x, y) => y.length - x.length)[0] || '');
-  } catch {}
-  const articleEl = (html.match(/<article[\s>][\s\S]*<\/article>/i) || [''])[0];
-  const candidates = [fromLd, fromNext, paras(clean(articleEl)), paras(clean(html))];
-  const best = candidates.find(c => c.length >= 5) || candidates.sort((x, y) => y.join('').length - x.join('').length)[0];
-  const paragraphs = best.filter(t => !seen.has(t) && seen.add(t));
-  if (paragraphs.length < 2) throw new Error('Couldn\'t find the article text on that page (it may be behind a paywall). Paste the text instead.');
+async function analyzeArticle({ paragraphs = [], source = '', lean = '' }) {
+  const paras = paragraphs.filter(p => typeof p === 'string').slice(0, 80);
+  let budget = 24000;
+  const kept = paras.filter(p => (budget -= p.length) > 0);
+  if (!kept.length) throw new Error('No text to analyze.');
+  const user = `Outlet: ${source || 'unknown'}${lean ? ` (generally rated ${lean})` : ''}\n\n` + kept.map((p, i) => `[${i + 1}] ${p}`).join('\n\n');
+  const out = await chatJSON(SCAN_SYSTEM, user, { maxTokens: 2000, timeout: 90000 });
+  const str = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
+  // Keep only findings whose quote really appears in the article; the AI must not invent lines.
+  const findings = (Array.isArray(out.findings) ? out.findings : []).slice(0, 12).map(f => {
+    const quote = str(f?.quote, 300);
+    if (!quote || !['left', 'right', 'loaded'].includes(f?.lean)) return null;
+    let p = Number(f.p) - 1;
+    if (!(kept[p] && norm(kept[p]).includes(norm(quote)))) p = kept.findIndex(t => norm(t).includes(norm(quote)));
+    if (p < 0) return null;
+    return { p, quote, lean: f.lean, type: str(f.type, 40) || 'framing', why: str(f.why, 300), neutral: str(f.neutral, 200) };
+  }).filter(Boolean);
   return {
-    url: url.href,
-    title: meta('og:title') || strip((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || ''),
-    site: meta('og:site_name') || url.hostname.replace(/^www\./, ''),
-    paragraphs: paragraphs.slice(0, 120),
+    summary: str(out.summary, 500),
+    lean: Math.max(-3, Math.min(3, Math.round(Number(out.lean) || 0))),
+    findings,
+    missing: (Array.isArray(out.missing) ? out.missing : []).slice(0, 3).map(m => str(m, 200)).filter(Boolean),
+    dropped: (Array.isArray(out.findings) ? Math.min(out.findings.length, 12) : 0) - findings.length,
   };
 }
+
+const readBody = req => new Promise((resolve, reject) => {
+  let data = '';
+  req.on('data', c => { data += c; if (data.length > 400000) { reject(new Error('Too much text.')); req.destroy(); } });
+  req.on('end', () => { try { resolve(JSON.parse(data || '{}')); } catch { reject(new Error('Bad request.')); } });
+});
 
 // ---------- http (local only) ----------
 
@@ -330,11 +333,15 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 
 function serve() {
   http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x');
-    if (url.pathname === '/api/article') {
+    if (url.pathname === '/api/ai-status') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ available: aiAvailable() }));
+    }
+    if (url.pathname === '/api/analyze' && req.method === 'POST') {
       try {
-        const art = await extractArticle(url.searchParams.get('url') || '');
+        const result = await analyzeArticle(await readBody(req));
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify(art));
+        return res.end(JSON.stringify(result));
       } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: err.message }));

@@ -1,7 +1,8 @@
 // Spin Check: find the same story across outlets on both sides, attach matching Polymarket odds,
-// and (when an AI is reachable) add a facts-only note on how the framing differs.
-// AI runs free through GitHub Models inside the GitHub Action. Without it, cards still show
-// every outlet's headline side by side.
+// and (when an AI key is set, see ai.js) add a facts-only note on how the framing differs.
+// Without AI, cards still show every outlet's headline side by side.
+
+const { chatJSON, aiAvailable } = require('./ai');
 
 const STOP = new Set(('the a an and or but of to in on at for with from by as is are was were be been has have had it its this that these those ' +
   'after before over under into amid about says said say new news live update updates report reports reported how why what who will would could ' +
@@ -94,23 +95,10 @@ Rules:
 Return JSON: {"exclude": ["outlet name", ...], "headline": "neutral 6-12 word description of the event", "spin": "1-2 short sentences on how the framing differs", "confirmed": [{"claim": "...", "basis": "..."}], "unverified": ["..."], "horseshoe": ""}. Max 3 confirmed, max 2 unverified.`;
 
 async function aiNote(cluster) {
-  const token = process.env.GITHUB_TOKEN;
-  if (!token || process.env.SPIN_AI === 'off') return null;
+  if (!aiAvailable()) return null;
   const input = cluster.members.map(m => `[${m.source} | lean: ${m.lean || 'n/a'}]\nHeadline: ${m.title}\nSummary: ${m.summary}`).join('\n\n');
   try {
-    const res = await fetch('https://models.github.ai/inference/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: process.env.SPIN_MODEL || 'openai/gpt-4.1-mini',
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-        messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: input }],
-      }),
-      signal: AbortSignal.timeout(45000),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const out = JSON.parse((await res.json()).choices[0].message.content);
+    const out = await chatJSON(SYSTEM, input, { maxTokens: 700, timeout: 45000 });
     const str = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
     return {
       exclude: (Array.isArray(out.exclude) ? out.exclude : []).filter(x => typeof x === 'string'),

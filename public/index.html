@@ -195,13 +195,26 @@
   .scan { max-width: 860px; }
   .scan h2 { font-family: var(--serif); font-size: 34px; margin: 4px 0 6px; }
   .scan .lede { color: var(--muted); margin: 0 0 18px; line-height: 1.5; }
+  .scan-label { display: block; font-weight: 600; font-size: 14px; margin: 14px 0 6px; }
+  .scan-label span { font-weight: 400; color: var(--dim); }
+  .scan-input { width: 100%; padding: 12px 14px; font: inherit; font-size: 15px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); }
+  .scan-src { min-height: 20px; margin-top: 6px; font-size: 13px; color: var(--muted); }
+  .scan-src span { color: var(--dim); }
+  .ai-badge, .word-badge { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; margin-left: 8px; padding: 2px 6px; border-radius: 3px; }
+  .ai-badge { background: var(--accent-soft); color: var(--accent); }
+  .word-badge { background: var(--panel-2); color: var(--muted); }
+  .verdict .ai-badge { margin: 0 6px 0 0; vertical-align: 2px; }
+  .ai-verdict { font-weight: 400; font-size: 15px; line-height: 1.5; }
+  .meter i.ai { background: var(--accent); }
+  .missing { margin-top: 18px; padding: 14px 16px; background: var(--panel-2); border-radius: 8px; font-size: 14px; }
+  .missing ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.5; color: var(--muted); }
   .scan-form { display: flex; gap: 8px; }
   .scan-form input { flex: 1; min-width: 0; padding: 12px 14px; font: inherit; font-size: 15px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); }
-  .scan-form input:focus, .scan textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .scan-input:focus, .scan textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
   .scan-form button, .scan .paste button { padding: 12px 18px; background: var(--text); color: #fff; border-radius: 8px; font-weight: 600; }
   .scan details { margin-top: 10px; font-size: 13px; color: var(--muted); }
   .scan summary { cursor: pointer; }
-  .scan textarea { width: 100%; min-height: 160px; margin-top: 8px; padding: 12px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); }
+  .scan textarea { width: 100%; min-height: 200px; padding: 12px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); }
   .scan .paste { display: flex; justify-content: flex-end; margin-top: 8px; }
   .scan-err { margin-top: 14px; padding: 12px 14px; background: #fdecea; color: var(--down); border-radius: 8px; font-size: 14px; }
   .scan-res { margin-top: 24px; }
@@ -293,7 +306,7 @@ const GOATCOUNTER = 'overwatch-news';
 const LEANS = ['far left', 'left', 'lean left', 'center', 'lean right', 'right', 'far right'];
 const LEAN_COLORS = { 'far left': '#1e2f8a', left: '#1d4ed8', 'lean left': '#5b8def', center: '#6b7280', 'lean right': '#e06055', right: '#c42a1c', 'far right': '#7a1610' };
 
-const state = { scan: { url: '', loading: false, error: '', result: null, filter: null, full: false }, desk: load('desk', 'front'), topic: null, oddsDesk: load('oddsDesk', 'mideast'), spinIdx: 0, edition: null, retryAt: 0 };
+const state = { scan: { url: '', text: '', error: '', result: null, filter: null, full: false, ai: {} }, desk: load('desk', 'front'), topic: null, oddsDesk: load('oddsDesk', 'mideast'), spinIdx: 0, edition: null, retryAt: 0 };
 function load(k, d) { try { return localStorage.getItem('ow.' + k) || d; } catch { return d; } }
 function save(k, v) { try { localStorage.setItem('ow.' + k, v); } catch {} }
 
@@ -383,6 +396,17 @@ function renderSpin() {
 }
 
 // ---------- Bias Scanner ----------
+// You give the article's link (only to identify the outlet) and paste its text. The word list
+// runs in the browser; the AI line analysis runs on the local server when an AI key is set.
+
+const AI_TYPES_LABEL = t => t.charAt(0).toUpperCase() + t.slice(1);
+
+function identifySource(link) {
+  let host;
+  try { host = new URL(link).hostname.replace(/^www\./, ''); } catch { return null; }
+  const known = (state.edition?.sources || []).find(s => (s.domains || []).some(d => host === d || host.endsWith('.' + d)));
+  return known ? { name: known.name, lean: known.lean, host } : { name: host, lean: null, host };
+}
 
 function markSentence({ sentence, hits }, only) {
   let out = '', at = 0;
@@ -394,88 +418,127 @@ function markSentence({ sentence, hits }, only) {
   return out + esc(sentence.slice(at));
 }
 
+// Highlight an AI quote inside its paragraph (case- and quote-style-insensitive).
+function markQuote(text, quote, cls) {
+  const fold = t => t.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").toLowerCase();
+  const i = fold(text).indexOf(fold(quote));
+  if (i < 0) return esc(text);
+  return esc(text.slice(0, i)) + `<mark class="${cls}">${esc(text.slice(i, i + quote.length))}</mark>` + esc(text.slice(i + quote.length));
+}
+
+const leanWord = n => n === 0 ? 'balanced' : `${Math.abs(n) >= 3 ? 'strongly ' : Math.abs(n) === 1 ? 'slightly ' : ''}${n < 0 ? 'left' : 'right'}`;
+
 function renderScanner() {
-  const sc = state.scan, r = sc.result;
+  const sc = state.scan, r = sc.result, src = identifySource(sc.url);
   let html = `<div class="scan">
     <div class="kicker"><span class="src">Tool</span></div>
     <h2>Bias Scanner</h2>
-    <p class="lede">Paste a link to any news article. The scanner goes through it line by line and flags word choices that lean left, lean right, or are loaded either way, and suggests a neutral alternative.</p>
-    <form class="scan-form" id="scanForm"><input id="scanUrl" type="url" inputmode="url" placeholder="https://www.example.com/news/article" value="${esc(sc.url)}" aria-label="Article link"><button type="submit">Scan</button></form>
-    <details${sc.pasteOpen ? ' open' : ''}><summary>Or paste the article text (for paywalled or blocked sites)</summary>
-      <textarea id="scanText" placeholder="Paste the article text here"></textarea>
-      <div class="paste"><button type="button" data-scan-paste>Scan text</button></div></details>`;
-  if (sc.loading) html += `<div class="scan-loading">READING THE ARTICLE…</div>`;
+    <p class="lede">Paste the article's link so we know which outlet it's from, then copy and paste the article text. The scanner goes through it line by line and flags framing that leans left, leans right, or is loaded, with a neutral alternative for each.</p>
+    <form id="scanForm">
+      <label class="scan-label" for="scanUrl">Article link <span>(identifies the outlet)</span></label>
+      <input id="scanUrl" class="scan-input" type="url" inputmode="url" placeholder="https://www.example.com/news/article" value="${esc(sc.url)}">
+      <div class="scan-src" id="scanSrc">${srcLine(src)}</div>
+      <label class="scan-label" for="scanText">Article text <span>(copy the whole article and paste it here)</span></label>
+      <textarea id="scanText" placeholder="Paste the article text here">${esc(sc.text)}</textarea>
+      <div class="paste"><button type="submit">Scan article</button></div>
+    </form>`;
   if (sc.error) html += `<div class="scan-err">${esc(sc.error)}</div>`;
   if (r) {
     const { counts, lean, findings, marked } = r.scan;
+    const ai = sc.ai;
+    const aiFindings = (ai.data?.findings || []).filter(f => !sc.filter || f.lean === sc.filter);
     const shown = findings.filter(f => !sc.filter || f.side === sc.filter);
-    const pos = 50 + lean * 50 * Math.min(1, (counts.left + counts.right) / 4); // few signals → stay near the middle
+    const wordPos = 50 + lean * 50 * Math.min(1, (counts.left + counts.right) / 4); // few signals → stay near the middle
+    const n = k => findings.filter(f => f.side === k).length + (ai.data?.findings || []).filter(f => f.lean === k).length;
     html += `<div class="scan-res">
-      <div class="src">${esc(r.site || 'Pasted text')}</div>
-      ${r.title ? `<h3>${esc(r.title)}</h3>` : ''}
-      <div class="meter"><i style="left:${pos.toFixed(1)}%"></i></div>
-      <div class="meter-labels"><span>Left-coded</span><span>Balanced</span><span>Right-coded</span></div>
-      <div class="verdict">${esc(BiasScanner.leanVerdict(r.scan))}</div>
+      <div class="src">${r.source.lean ? leanPill(r.source.lean) + ' ' : ''}${esc(r.source.name)}${r.source.lean ? ' · outlet generally rated ' + esc(r.source.lean) : ''}</div>
+      <div class="meter">${ai.data ? `<i class="ai" style="left:${50 + ai.data.lean * 50 / 3}%" title="AI read"></i>` : ''}<i style="left:${wordPos.toFixed(1)}%" title="Word choice"></i></div>
+      <div class="meter-labels"><span>Left</span><span>Balanced</span><span>Right</span></div>
+      <div class="verdict">Word choice: ${esc(BiasScanner.leanVerdict(r.scan))}</div>
+      ${ai.data ? `<div class="verdict ai-verdict"><span class="ai-badge">AI read</span> Framing leans ${esc(leanWord(ai.data.lean))}. ${esc(ai.data.summary)}</div>` : ''}
+      ${ai.loading ? `<div class="scan-loading">AI IS READING EVERY LINE…</div>` : ''}
+      ${ai.error ? `<div class="scan-err">${esc(ai.error)}</div>` : ''}
+      ${ai.off ? `<p class="caveat">AI line analysis is off. Add a free AI key to turn it on (see README).</p>` : ''}
       <div class="counts">
-        ${['left', 'right', 'loaded'].map(k => `<button data-scan-filter="${k}" class="${sc.filter === k ? 'on' : ''}"><span class="dot" style="background:var(--${k === 'loaded' ? 'amber' : k})"></span>${BiasScanner.SIDES[k].label}: ${findings.filter(f => f.side === k).length}</button>`).join('')}
+        ${['left', 'right', 'loaded'].map(k => `<button data-scan-filter="${k}" class="${sc.filter === k ? 'on' : ''}"><span class="dot" style="background:var(--${k === 'loaded' ? 'amber' : k})"></span>${BiasScanner.SIDES[k].label}: ${n(k)}</button>`).join('')}
         <button data-scan-full class="${sc.full ? 'on' : ''}">${sc.full ? 'Show flagged lines' : 'Show full article'}</button>
       </div>
-      <p class="caveat">These are word-choice signals, not a verdict on the whole article. Sometimes the flagged word is the accurate one. Words inside quotation marks are someone else's: they're listed, but don't count toward the lean (${counts.quoted} this time). ${r.paragraphs.length} paragraphs scanned.</p>`;
+      <p class="caveat">These are framing signals, not a verdict on the whole article. Sometimes the flagged word is the accurate one. Words inside quotation marks belong to the person quoted, so the word list doesn't count them (${counts.quoted} this time). The AI only flags lines it can quote exactly from your text${ai.data?.dropped > 0 ? `; ${ai.data.dropped} of its findings were dropped because the quote wasn't in the article` : ''}.</p>`;
     if (sc.full) {
-      html += `<div class="full-text">${marked.map(sents => `<p>${sents.map(x => markSentence(x, sc.filter)).join(' ')}</p>`).join('')}</div>`;
-    } else if (!shown.length) {
+      const aiByP = {};
+      (ai.data?.findings || []).forEach(f => { if (!sc.filter || f.lean === sc.filter) (aiByP[f.p] ||= []).push(f); });
+      html += `<div class="full-text">${marked.map((sents, i) => {
+        const aiHere = aiByP[i];
+        if (aiHere) return `<p>${markQuote(r.paragraphs[i], aiHere[0].quote, BiasScanner.SIDES[aiHere[0].lean].cls)}</p>`; // first AI finding per paragraph
+        return `<p>${sents.map(x => markSentence(x, sc.filter)).join(' ')}</p>`;
+      }).join('')}</div>`;
+    } else if (!shown.length && !aiFindings.length) {
       html += `<div class="empty">Nothing flagged${sc.filter ? ' in this category' : ''}.</div>`;
     } else {
+      html += aiFindings.map(f => `<div class="finding">
+        <span class="tag ${BiasScanner.SIDES[f.lean].cls}">${BiasScanner.SIDES[f.lean].label}</span><span class="ai-badge">AI · ${esc(f.type)}</span>
+        <blockquote>${markQuote(r.paragraphs[f.p], f.quote, BiasScanner.SIDES[f.lean].cls)}</blockquote>
+        <div class="why">${esc(f.why)}${f.neutral ? ` <b>Neutral:</b> ${esc(f.neutral)}` : ''}</div></div>`).join('');
       html += shown.map(f => `<div class="finding">
-        <span class="tag ${BiasScanner.SIDES[f.side].cls}">${BiasScanner.SIDES[f.side].label}</span>${f.quoted ? '<span class="quoted">in a quote</span>' : ''}
+        <span class="tag ${BiasScanner.SIDES[f.side].cls}">${BiasScanner.SIDES[f.side].label}</span><span class="word-badge">Word list</span>${f.quoted ? '<span class="quoted">in a quote</span>' : ''}
         <blockquote>${markSentence({ sentence: f.sentence, hits: [f] })}</blockquote>
         <div class="why">${esc(f.note)} <b>Neutral:</b> ${esc(f.neutral)}.</div></div>`).join('');
     }
+    if (ai.data?.missing.length) html += `<div class="missing"><b>Context a fair version would add</b><ul>${ai.data.missing.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>`;
     html += `</div>`;
   }
   $('feed').innerHTML = html + `</div>`;
 }
 
-async function runScan(url) {
-  const sc = state.scan;
-  Object.assign(sc, { url, loading: true, error: '', result: null, filter: null, full: false });
-  renderScanner();
-  try {
-    const res = await fetch('api/article?url=' + encodeURIComponent(url));
-    const isJson = (res.headers.get('content-type') || '').includes('json');
-    const art = isJson ? await res.json() : { error: 'Link scanning needs the OVERWATCH server, which this copy of the site doesn\'t have. Paste the article text below instead.' };
-    if (art.error) throw new Error(art.error);
-    sc.result = { ...art, scan: BiasScanner.scanText(art.paragraphs) };
-    track('bias-scan', new URL(url).hostname);
-  } catch (err) {
-    sc.error = err.message; sc.pasteOpen = true;
-  }
-  sc.loading = false;
-  renderScanner();
+function srcLine(src) {
+  if (!src) return '';
+  return src.lean ? `Outlet: ${leanPill(src.lean)} <b>${esc(src.name)}</b>` : `Outlet: <b>${esc(src.name)}</b> <span>(not in our source list, so no lean rating)</span>`;
 }
 
-function scanPasted(text) {
-  const paragraphs = text.split(/\n\s*\n|\n/).map(t => t.trim()).filter(t => t.length > 20);
-  if (!paragraphs.length) { state.scan.error = 'Paste some article text first.'; return renderScanner(); }
-  Object.assign(state.scan, { error: '', filter: null, full: false, result: { title: '', site: '', paragraphs, scan: BiasScanner.scanText(paragraphs) } });
-  track('bias-scan', 'pasted');
+async function runScan() {
+  const sc = state.scan;
+  sc.url = $('scanUrl').value.trim();
+  sc.text = $('scanText').value;
+  const src = identifySource(sc.url);
+  const paragraphs = sc.text.split(/\n\s*\n|\n/).map(t => t.trim()).filter(t => t.length > 20);
+  if (!src) { sc.error = 'Paste the article\'s full link (starting with https://) so we know which outlet it is.'; return renderScanner(); }
+  if (paragraphs.join(' ').length < 200) { sc.error = 'Paste the article text too: copy the whole article from the site and paste it in the box.'; return renderScanner(); }
+  Object.assign(sc, { error: '', filter: null, full: false, ai: { loading: true },
+    result: { source: src, paragraphs, scan: BiasScanner.scanText(paragraphs) } });
+  track('bias-scan', src.host);
   renderScanner();
+  $('feed').querySelector('.scan-res')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    const status = await fetch('api/ai-status').then(r => r.ok && (r.headers.get('content-type') || '').includes('json') ? r.json() : { available: false });
+    if (!status.available) { sc.ai = { off: true }; return renderScanner(); }
+    const res = await fetch('api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paragraphs, source: src.name, lean: src.lean }) });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    sc.ai = { data };
+  } catch (err) {
+    sc.ai = { error: 'AI analysis failed: ' + err.message };
+  }
+  if (state.scan.result?.paragraphs === paragraphs) renderScanner();
 }
 
 document.addEventListener('submit', e => {
   if (e.target.id !== 'scanForm') return;
   e.preventDefault();
-  const url = $('scanUrl').value.trim();
-  if (!/^https?:\/\/\S+\.\S+/.test(url)) { state.scan.error = 'Enter a full link starting with https://'; return renderScanner(); }
-  runScan(url);
+  runScan();
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'scanUrl') $('scanSrc').innerHTML = srcLine(identifySource(e.target.value.trim()));
 });
 
 function scanFromReader(link) {
   closeReader();
   state.desk = 'scan'; save('desk', 'scan');
-  renderChrome();
+  Object.assign(state.scan, { url: link, text: '', result: null, error: '' });
+  renderChrome(); renderFeed();
   window.scrollTo({ top: $('desks').offsetTop - 8, behavior: 'smooth' });
-  runScan(link);
+  setTimeout(() => $('scanText')?.focus(), 400);
+  toast('Now copy the article text and paste it here.');
 }
 
 // The 7 lean positions laid out on a horseshoe: center at the bottom, far left and far right
@@ -722,7 +785,6 @@ document.addEventListener('click', e => {
   else if (b.dataset.scanLink) return scanFromReader(b.dataset.scanLink);
   else if (b.dataset.scanFilter) { state.scan.filter = state.scan.filter === b.dataset.scanFilter ? null : b.dataset.scanFilter; return renderScanner(); }
   else if ('scanFull' in b.dataset) { state.scan.full = !state.scan.full; return renderScanner(); }
-  else if ('scanPaste' in b.dataset) return scanPasted($('scanText').value);
   else return;
   renderChrome(); renderFeed(); window.scrollTo({ top: $('desks').offsetTop - 8, behavior: 'smooth' });
 });
