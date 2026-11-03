@@ -277,8 +277,14 @@
   @media (max-width: 560px) { .scan-row { flex-direction: column; } }
 
   /* per-article flag + check */
-  .flag { font-size: 10.5px; font-weight: 700; padding: 1px 5px; border: 1px solid currentColor; }
-  .flag.b-left { color: var(--left); } .flag.b-right { color: var(--right); } .flag.b-loaded { color: var(--amber); }
+  .flag { font-size: 10.5px; font-weight: 800; padding: 2px 6px; color: #fff; text-transform: uppercase; letter-spacing: .03em; }
+  .flag.b-left { background: var(--left); } .flag.b-right { background: var(--right); } .flag.b-loaded { background: var(--amber); }
+  .lean.o { background: none !important; border: 1px solid currentColor; padding: 0 4px; font-size: 9.5px; }
+  .lean.o.far-left { color: var(--far-left); } .lean.o.left { color: var(--left); } .lean.o.lean-left { color: var(--lean-left); } .lean.o.center { color: var(--center); }
+  .lean.o.lean-right { color: var(--lean-right); } .lean.o.right { color: var(--right); } .lean.o.far-right { color: var(--far-right); }
+  .ac-h { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 10px 0 2px; }
+  .ac-outlet { margin: 4px 0; }
+  .ac-together { margin: 6px 0 0; padding: 8px 10px; background: #fff; border-left: 3px solid var(--text); line-height: 1.45; }
   .ac { border-bottom: 1px solid var(--line); background: var(--panel-2); max-height: 58vh; overflow-y: auto; flex: none; }
   .ac summary { cursor: pointer; padding: 12px 16px; display: flex; gap: 10px; align-items: baseline; font-size: 13px; list-style: none; }
   .ac summary::-webkit-details-marker { display: none; }
@@ -315,7 +321,7 @@
   .outlet.here { background: #fff; padding: 9px 10px; margin: 0 -10px; }
   .here-tag { margin-left: auto; font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
   .ac-same .shoe { max-width: 320px; margin: 4px auto 6px; }
-  .flag.cmp { color: var(--text); }
+  .flag.cmp { background: none; color: var(--text); border: 1px solid currentColor; }
 
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: #fff; padding: 10px 16px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; }
   .toast.on { opacity: 1; }
@@ -409,7 +415,7 @@ const reg = a => { byLink.set(a.link, a); return a.link; };
 
 function kicker(a) {
   const tag = a.tags?.[0] ? `<span class="tagpill">${esc(a.tags[0])}</span>` : '';
-  return `<div class="kicker">${tag}${leanPill(a.lean)}<span class="src">${esc(a.source)}</span><span class="t">${ago(a.published)}</span>${biasFlag(a)}${compareFlag(a)}</div>`;
+  return `<div class="kicker">${biasFlag(a)}${tag}<span class="src">${esc(a.source)}</span>${outletPill(a)}<span class="t">${ago(a.published)}</span>${compareFlag(a)}</div>`;
 }
 const imgTag = a => a.image ? `<img src="${esc(a.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="imgFailed(this)">` : '';
 // A dead image link drops that picture; if it was a top-of-page slot, re-lay out so a story with a working picture leads.
@@ -685,13 +691,41 @@ function scanFromReader(link) {
 // Every headline + summary in the feed runs through the word list in the browser. Cards show a small
 // flag; the reader shows the details, other outlets' versions of the same story, and an optional AI read.
 
+// The headline's own wording is the main signal; the outlet's overall rating is context next to it.
 const headlineScan = a => a._scan ||= BiasScanner.scanText([a.title, a.summary].filter(Boolean));
-function biasFlag(a) {
+function headlineRead(a) {
   const { left, right, loaded } = headlineScan(a).counts;
-  if (!left && !right && !loaded) return '';
-  const [cls, label] = left && right ? ['b-loaded', 'Mixed wording'] : left ? ['b-left', 'Left-coded wording'] : right ? ['b-right', 'Right-coded wording'] : ['b-loaded', 'Loaded wording'];
-  return `<span class="flag ${cls}" title="Open the story to see which words">${label}</span>`;
+  if (left && right) return { side: 'mixed', cls: 'b-loaded', label: 'Mixed-wording headline' };
+  if (left) return { side: 'left', cls: 'b-left', label: 'Left-coded headline' };
+  if (right) return { side: 'right', cls: 'b-right', label: 'Right-coded headline' };
+  if (loaded) return { side: 'loaded', cls: 'b-loaded', label: 'Loaded headline' };
+  return { side: 'neutral', cls: '', label: 'Neutral headline' };
 }
+function biasFlag(a) {
+  const h = headlineRead(a);
+  return h.side === 'neutral' ? '' : `<span class="flag ${h.cls}" title="Based on the headline's own words. Open the story to see which.">${h.label}</span>`;
+}
+const outletSide = lean => !lean ? null : lean.includes('left') ? 'left' : lean.includes('right') ? 'right' : 'center';
+const outletRating = name => state.edition.sources.find(s => s.name === name) || {};
+function outletPill(a) {
+  if (!a.lean) return '';
+  const by = outletRating(a.source).rated;
+  return `<span class="lean o ${a.lean.replace(' ', '-')}" title="${esc(a.source)} is rated ${esc(a.lean)}${by ? ' by ' + esc(by) : ''}">${esc(a.lean)}</span>`;
+}
+
+// One line that puts the headline and the outlet together.
+function together(a) {
+  const h = headlineRead(a), o = outletSide(a.lean), lean = a.lean;
+  if (!o) return h.side === 'neutral' ? 'Neutral wording. This outlet has no lean rating.' : `${h.label.replace(' headline', '')} wording. This outlet has no lean rating to compare it with.`;
+  if (h.side === 'neutral') return o === 'center'
+    ? 'Neutral wording from a center-rated outlet.'
+    : `Neutral wording, even though the outlet is rated ${lean}. Its lean is more likely to show in which stories it covers and what it leaves out than in this headline.`;
+  if (h.side === 'loaded') return `Loaded wording that doesn't point to a side, from an outlet rated ${lean}.`;
+  if (h.side === 'mixed') return `Wording with signals from both sides, from an outlet rated ${lean}.`;
+  if (h.side === o) return `The headline's wording matches the outlet's ${lean} rating.`;
+  return `Unusual: the wording is ${h.side}-coded but the outlet is rated ${lean}. Check whether those words are someone else's.`;
+}
+
 const compareFlag = a => { const c = sameStory(a); return c ? `<span class="flag cmp" title="Open the story to compare">${c.outlets.length} sides compared</span>` : ''; };
 
 const sameStory = a => (state.edition.spin || []).find(c => c.outlets.some(o => o.link === a.link));
@@ -703,11 +737,15 @@ function articleCheck(a) {
   const cluster = sameStory(a);
   const others = cluster ? cluster.outlets.filter(o => o.link !== a.link) : [];
   return `<details class="ac" open>
-    <summary><b>Bias check</b><span>${shown.length ? `${shown.length} flagged word${shown.length === 1 ? '' : 's'}` : 'Headline looks neutral'}${a.lean ? ` · outlet rated ${esc(a.lean)}` : ''}${others.length ? ` · ${cluster.outlets.length} outlets compared` : ''}</span></summary>
+    <summary><b>Bias check</b><span>${headlineRead(a).label}${a.lean ? ` · outlet rated ${esc(a.lean)}` : ''}${others.length ? ` · ${cluster.outlets.length} outlets compared` : ''}</span></summary>
     <div class="ac-body">
+      <div class="ac-h">The headline</div>
       ${shown.length ? shown.map(f => `<div class="ac-f"><span class="tag ${BiasScanner.SIDES[f.side].cls}">${BiasScanner.SIDES[f.side].label}</span>
         <div>${markSentence({ sentence: f.sentence, hits: [f] })}</div><small>${esc(f.note)} <b>Neutral:</b> ${esc(f.neutral)}.</small></div>`).join('')
         : `<p class="ac-none">No loaded or one-sided words in the headline or summary.</p>`}
+      <div class="ac-h">The outlet</div>
+      <p class="ac-outlet">${a.lean ? `${outletPill(a)} <b>${esc(a.source)}</b> is rated ${esc(a.lean)} overall${outletRating(a.source).rated ? ` by ${esc(outletRating(a.source).rated)}` : ''}.` : `<b>${esc(a.source)}</b> has no lean rating (it's an OSINT or analysis source).`}</p>
+      <p class="ac-together">${esc(together(a))}</p>
       ${others.length ? `<div class="ac-same"><b>How every side covered this</b>${spinBody(cluster, a.link)}</div>` : ''}
       ${ai?.data ? `<div class="ac-ai"><span class="ai-badge">AI read</span> ${ai.data.lean != null ? `Leans ${esc(leanWord(ai.data.lean))}. ` : ''}${esc(ai.data.summary)}</div>`
         : ai?.loading ? `<div class="ac-ai">The AI is reading the headline… this can take up to a minute.</div>`

@@ -15,25 +15,27 @@ const EDITION_NAMES = { 6: 'Morning Edition', 12: 'Midday Edition', 18: 'Evening
 const CACHE_FILE = path.join(__dirname, 'public', 'edition.json');
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 Chrome/124 Safari/537.36';
 
-// lean: 7-point horseshoe scale (far left … center … far right), roughly following common media-bias
-// charts (AllSides / Ad Fontes). Shown as a label only.
+// lean: the outlet's overall lean, from AllSides (5-point scale, news coverage; checked Nov 2026), or from
+// Media Bias/Fact Check for outlets AllSides doesn't rate. "far left" / "far right" extend it into a
+// 7-point horseshoe for outlets those raters flag as strongly one-sided or questionable.
+// rated: who the rating comes from, shown to readers.
 // desk 'compare' = outlets used only for Spin Check, not shown in the main feed.
 const SOURCES = [
   // Israel & Middle East
-  { name: 'Times of Israel', desk: 'israel', lean: 'center', url: 'https://www.timesofisrael.com/feed/' },
-  { name: 'Jerusalem Post', desk: 'israel', lean: 'lean right', url: 'https://www.jpost.com/rss/rssfeedsfrontpage.aspx' },
-  { name: 'JNS', desk: 'israel', lean: 'right', url: 'https://www.jns.org/feed/' },
-  { name: 'Israel National News', desk: 'israel', lean: 'right', url: 'https://www.israelnationalnews.com/Rss.aspx' },
-  { name: 'Jewish Insider', desk: 'israel', lean: 'center', url: 'https://www.jewishinsider.com/feed/' },
-  { name: 'Ynet News', desk: 'israel', lean: 'center', url: 'https://www.ynetnews.com/Integration/StoryRss3089.xml' },
+  { name: 'Times of Israel', desk: 'israel', lean: 'center', rated: 'AllSides', url: 'https://www.timesofisrael.com/feed/' },
+  { name: 'Jerusalem Post', desk: 'israel', lean: 'center', rated: 'AllSides', url: 'https://www.jpost.com/rss/rssfeedsfrontpage.aspx' },
+  { name: 'JNS', desk: 'israel', lean: 'lean right', rated: 'Media Bias/Fact Check', url: 'https://www.jns.org/feed/' },
+  { name: 'Israel National News', desk: 'israel', lean: 'lean right', rated: 'Media Bias/Fact Check', url: 'https://www.israelnationalnews.com/Rss.aspx' },
+  { name: 'Jewish Insider', desk: 'israel', lean: 'center', rated: 'AllSides', url: 'https://www.jewishinsider.com/feed/' },
+  { name: 'Ynet News', desk: 'israel', lean: 'lean left', rated: 'Media Bias/Fact Check', url: 'https://www.ynetnews.com/Integration/StoryRss3089.xml' },
   // US politics (right of center)
-  { name: 'The Daily Wire', desk: 'politics', lean: 'right', url: 'https://www.dailywire.com/feeds/rss.xml' },
-  { name: 'Washington Free Beacon', desk: 'politics', lean: 'right', url: 'https://freebeacon.com/feed/' },
-  { name: 'National Review', desk: 'politics', lean: 'right', url: 'https://www.nationalreview.com/feed/' },
-  { name: 'Washington Examiner', desk: 'politics', lean: 'lean right', url: 'https://www.washingtonexaminer.com/feed' },
-  { name: 'The Free Press', desk: 'politics', lean: 'center', url: 'https://www.thefp.com/feed' },
-  { name: 'New York Post', desk: 'politics', lean: 'lean right', url: 'https://nypost.com/feed/' },
-  { name: 'Fox News', desk: 'politics', lean: 'right', url: 'https://moxie.foxnews.com/google-publisher/latest.xml' },
+  { name: 'The Daily Wire', desk: 'politics', lean: 'right', rated: 'AllSides', url: 'https://www.dailywire.com/feeds/rss.xml' },
+  { name: 'Washington Free Beacon', desk: 'politics', lean: 'right', rated: 'AllSides', url: 'https://freebeacon.com/feed/' },
+  { name: 'National Review', desk: 'politics', lean: 'lean right', rated: 'AllSides', url: 'https://www.nationalreview.com/feed/' },
+  { name: 'Washington Examiner', desk: 'politics', lean: 'lean right', rated: 'AllSides', url: 'https://www.washingtonexaminer.com/feed' },
+  { name: 'The Free Press', desk: 'politics', lean: 'lean right', rated: 'AllSides', url: 'https://www.thefp.com/feed' },
+  { name: 'New York Post', desk: 'politics', lean: 'right', rated: 'AllSides', url: 'https://nypost.com/feed/' },
+  { name: 'Fox News', desk: 'politics', lean: 'right', rated: 'AllSides', url: 'https://moxie.foxnews.com/google-publisher/latest.xml' },
   // OSINT, defense & intel
   { name: 'OSINTdefender', desk: 'osint', telegram: 'OSINTdefender' },
   { name: 'Long War Journal', desk: 'osint', url: 'https://www.longwarjournal.org/feed/' },
@@ -44,24 +46,24 @@ const SOURCES = [
   { name: 'Breaking Defense', desk: 'osint', url: 'https://breakingdefense.com/feed/' },
   { name: 'War on the Rocks', desk: 'osint', url: 'https://warontherocks.com/feed/' },
   // The rest of the horseshoe, for Spin Check only
-  { name: 'Mondoweiss', desk: 'compare', lean: 'far left', url: 'https://mondoweiss.net/feed/' },
-  { name: 'Electronic Intifada', desk: 'compare', lean: 'far left', url: 'https://electronicintifada.net/rss.xml' },
-  { name: 'Drop Site News', desk: 'compare', lean: 'far left', url: 'https://www.dropsitenews.com/feed' },
-  { name: 'Common Dreams', desk: 'compare', lean: 'far left', url: 'https://www.commondreams.org/feeds/feed.rss' },
-  { name: 'The Intercept', desk: 'compare', lean: 'left', url: 'https://theintercept.com/feed/?rss' },
-  { name: 'Democracy Now', desk: 'compare', lean: 'left', url: 'https://www.democracynow.org/democracynow.rss' },
-  { name: 'The Guardian', desk: 'compare', lean: 'left', url: 'https://www.theguardian.com/world/israel/rss' },
-  { name: 'CNN', desk: 'compare', lean: 'lean left', url: 'http://rss.cnn.com/rss/edition_meast.rss' },
-  { name: 'New York Times', desk: 'compare', lean: 'lean left', url: 'https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml' },
-  { name: 'NPR', desk: 'compare', lean: 'lean left', url: 'https://feeds.npr.org/1004/rss.xml' },
-  { name: 'Al Jazeera', desk: 'compare', lean: 'lean left', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
-  { name: 'BBC', desk: 'compare', lean: 'center', also: ['bbc.com'], url: 'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml' },
-  { name: 'Axios', desk: 'compare', lean: 'center', url: 'https://www.axios.com/feeds/feed.rss' },
-  { name: 'Daily Caller', desk: 'compare', lean: 'right', url: 'https://dailycaller.com/feed/' },
-  { name: 'The Post Millennial', desk: 'compare', lean: 'right', url: 'https://thepostmillennial.com/feed' },
-  { name: 'The Blaze', desk: 'compare', lean: 'right', url: 'https://www.theblaze.com/feeds/feed.rss' },
-  { name: 'Breitbart', desk: 'compare', lean: 'far right', url: 'https://www.breitbart.com/feed/' },
-  { name: 'American Greatness', desk: 'compare', lean: 'far right', url: 'https://amgreatness.com/feed/' },
+  { name: 'Mondoweiss', desk: 'compare', lean: 'far left', rated: 'Media Bias/Fact Check', url: 'https://mondoweiss.net/feed/' },
+  { name: 'Electronic Intifada', desk: 'compare', lean: 'far left', rated: 'Media Bias/Fact Check', url: 'https://electronicintifada.net/rss.xml' },
+  { name: 'Drop Site News', desk: 'compare', lean: 'left', rated: 'Media Bias/Fact Check', url: 'https://www.dropsitenews.com/feed' },
+  { name: 'Common Dreams', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://www.commondreams.org/feeds/feed.rss' },
+  { name: 'The Intercept', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://theintercept.com/feed/?rss' },
+  { name: 'Democracy Now', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://www.democracynow.org/democracynow.rss' },
+  { name: 'The Guardian', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://www.theguardian.com/world/israel/rss' },
+  { name: 'CNN', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'http://rss.cnn.com/rss/edition_meast.rss' },
+  { name: 'New York Times', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml' },
+  { name: 'NPR', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://feeds.npr.org/1004/rss.xml' },
+  { name: 'Al Jazeera', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
+  { name: 'BBC', desk: 'compare', lean: 'center', rated: 'AllSides', also: ['bbc.com'], url: 'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml' },
+  { name: 'Axios', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://www.axios.com/feeds/feed.rss' },
+  { name: 'Daily Caller', desk: 'compare', lean: 'lean right', rated: 'AllSides', url: 'https://dailycaller.com/feed/' },
+  { name: 'The Post Millennial', desk: 'compare', lean: 'right', rated: 'AllSides', url: 'https://thepostmillennial.com/feed' },
+  { name: 'The Blaze', desk: 'compare', lean: 'right', rated: 'AllSides', url: 'https://www.theblaze.com/feeds/feed.rss' },
+  { name: 'Breitbart', desk: 'compare', lean: 'far right', rated: 'Media Bias/Fact Check', url: 'https://www.breitbart.com/feed/' },
+  { name: 'American Greatness', desk: 'compare', lean: 'right', rated: 'AllSides', url: 'https://amgreatness.com/feed/' },
 ];
 
 // Topics that push a story up the front page. Weight = how much it matters to this reader.
@@ -245,7 +247,7 @@ async function buildEdition(slot = currentSlot()) {
   const sourceStatus = await Promise.all(SOURCES.map(async (s, i) => {
     const items = results[i].value || [];
     return {
-      name: s.name, desk: s.desk, lean: s.lean || null, ok: results[i].status === 'fulfilled', count: items.length,
+      name: s.name, desk: s.desk, lean: s.lean || null, rated: s.rated || null, ok: results[i].status === 'fulfilled', count: items.length,
       domains: [...new Set([s.url, s.telegram && 'https://t.me', items[0]?.link].filter(Boolean)
         .map(u => new URL(u).hostname.replace(/^(www|rss|feeds|moxie)\./, '')).concat(s.also || []))],
       frameable: !!s.telegram || (items[0] ? await canFrame(items[0].link) : false), // Telegram uses its embed page

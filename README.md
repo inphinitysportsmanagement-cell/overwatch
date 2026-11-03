@@ -26,3 +26,10 @@ Set `SPIN_AI=off` to turn the AI off entirely.
 
 - **On every story:** each headline and summary is checked against a word list in the browser. Cards show a small flag (left-coded, right-coded or loaded wording). Opening a story shows the flagged words with neutral alternatives, other outlets' versions of the same story, and an optional AI check.
 - **Bias Check page** (`/#bias-check`): paste any article and the check runs as soon as you paste. The link is optional; without it the outlet is spotted from the byline when possible. The word list labels lines left, right or loaded. The AI also points out slanted lines (attribution, emphasis, sourcing, missing context), quoting only lines that really appear in the text. The free keyless AI doesn't label sides, because the small model mixes them up; with a Groq key the AI labels sides too.
+
+## Lean ratings
+
+Outlet leans come from [AllSides](https://www.allsides.com/media-bias/ratings) (news coverage, checked November 2026). For outlets AllSides doesn't rate (JNS, Israel National News, Ynet, Mondoweiss, Electronic Intifada, Drop Site News), they come from [Media Bias/Fact Check](https://mediabiasfactcheck.com). "Far left" / "far right" extend the 5-point scale for outlets those raters flag as strongly one-sided or questionable. Each rating's source is shown to readers.
+
+On the site, a story's **headline wording** is the main label (left-coded, right-coded, loaded or neutral). The outlet's overall rating sits next to it as context, and the story's Bias check says how the two compare.
+
