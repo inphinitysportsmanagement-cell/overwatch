@@ -204,7 +204,7 @@
   .ai-badge { background: var(--accent-soft); color: var(--accent); }
   .word-badge { background: var(--panel-2); color: var(--muted); }
   .verdict .ai-badge { margin: 0 6px 0 0; vertical-align: 2px; }
-  .ai-verdict { font-weight: 400; font-size: 15px; line-height: 1.5; }
+  .verdict.ai-verdict { font-weight: 400; font-size: 15px; line-height: 1.5; }
   .meter i.ai { background: var(--accent); }
   .missing { margin-top: 18px; padding: 14px 16px; background: var(--panel-2); border-radius: 8px; font-size: 14px; }
   .missing ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.5; color: var(--muted); }
@@ -218,7 +218,7 @@
   .scan .paste { display: flex; justify-content: flex-end; margin-top: 8px; }
   .scan-err { margin-top: 14px; padding: 12px 14px; background: #fdecea; color: var(--down); border-radius: 8px; font-size: 14px; }
   .scan-res { margin-top: 24px; }
-  .scan-res .src { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .scan-res .src { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 14px; }
   .scan-res h3 { font-family: var(--serif); font-size: 24px; line-height: 1.2; margin: 6px 0 16px; }
   .meter { position: relative; height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--far-left), var(--lean-left) 35%, var(--center) 50%, var(--lean-right) 65%, var(--far-right)); }
   .meter i { position: absolute; top: -5px; width: 4px; height: 20px; background: var(--text); border-radius: 2px; transform: translateX(-2px); box-shadow: 0 0 0 2px var(--bg); }
@@ -463,7 +463,7 @@ function renderScanner() {
         ${['left', 'right', 'loaded'].map(k => `<button data-scan-filter="${k}" class="${sc.filter === k ? 'on' : ''}"><span class="dot" style="background:var(--${k === 'loaded' ? 'amber' : k})"></span>${BiasScanner.SIDES[k].label}: ${n(k)}</button>`).join('')}
         <button data-scan-full class="${sc.full ? 'on' : ''}">${sc.full ? 'Show flagged lines' : 'Show full article'}</button>
       </div>
-      <p class="caveat">These are framing signals, not a verdict on the whole article. Sometimes the flagged word is the accurate one. Words inside quotation marks belong to the person quoted, so the word list doesn't count them (${counts.quoted} this time). The AI only flags lines it can quote exactly from your text${ai.data?.dropped > 0 ? `; ${ai.data.dropped} of its findings were dropped because the quote wasn't in the article` : ''}.</p>`;
+      <p class="caveat">These are framing signals, not a verdict on the whole article. Sometimes the flagged word is the accurate one. Words inside quotes or attributed to someone ("accused Israel of…", "…, Trump said") are theirs, so the word list doesn't count them (${counts.quoted} this time). The AI only flags lines it can quote exactly from your text${ai.data?.dropped > 0 ? `; ${ai.data.dropped} of its findings were dropped because the quote wasn't in the article` : ''}.</p>`;
     if (sc.full) {
       const aiByP = {};
       (ai.data?.findings || []).forEach(f => { if (!sc.filter || f.lean === sc.filter) (aiByP[f.p] ||= []).push(f); });
@@ -480,7 +480,7 @@ function renderScanner() {
         <blockquote>${markQuote(r.paragraphs[f.p], f.quote, BiasScanner.SIDES[f.lean].cls)}</blockquote>
         <div class="why">${esc(f.why)}${f.neutral ? ` <b>Neutral:</b> ${esc(f.neutral)}` : ''}</div></div>`).join('');
       html += shown.map(f => `<div class="finding">
-        <span class="tag ${BiasScanner.SIDES[f.side].cls}">${BiasScanner.SIDES[f.side].label}</span><span class="word-badge">Word list</span>${f.quoted ? '<span class="quoted">in a quote</span>' : ''}
+        <span class="tag ${BiasScanner.SIDES[f.side].cls}">${BiasScanner.SIDES[f.side].label}</span><span class="word-badge">Word list</span>${f.quoted ? '<span class="quoted">someone else\'s words</span>' : ''}
         <blockquote>${markSentence({ sentence: f.sentence, hits: [f] })}</blockquote>
         <div class="why">${esc(f.note)} <b>Neutral:</b> ${esc(f.neutral)}.</div></div>`).join('');
     }

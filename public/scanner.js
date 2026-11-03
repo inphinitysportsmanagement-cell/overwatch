@@ -25,7 +25,7 @@ const BIAS_TERMS = [
 
   // ---- US politics ----
   { re: /\bundocumented (immigrants?|migrants?|people|workers)\b/i, side: 'left', note: 'Preferred by immigration advocates.', neutral: 'immigrants in the country illegally' },
-  { re: /\billegal aliens?\b|\billegals\b/i, side: 'right', note: 'Preferred by immigration restrictionists. Many style guides avoid it.', neutral: 'immigrants in the country illegally' },
+  { re: /\billegal aliens?\b|\billegals\b|\billegal immigrants?\b|\bcriminal aliens?\b/i, side: 'right', note: 'Preferred by immigration restrictionists. Many style guides avoid it.', neutral: 'immigrants in the country illegally' },
   { re: /\bopen[- ]borders?\b/i, side: 'right', note: 'A critic\'s description of an opponent\'s policy.', neutral: 'describe the specific policy' },
   { re: /\bgun safety\b/i, side: 'left', note: 'Advocates\' framing for gun restrictions.', neutral: 'gun laws / gun control' },
   { re: /\bforced[- ]birth\b/i, side: 'left', note: 'Abortion-rights activists\' label for opponents.', neutral: 'anti-abortion' },
@@ -38,19 +38,34 @@ const BIAS_TERMS = [
   { re: /\b(corporate greed|big oil|big pharma)\b/i, side: 'left', note: 'Pejorative framing of industries.', neutral: 'name the companies' },
   { re: /\b(far|hard)[- ]right\b|\bright[- ]wing extremists?\b|\bmaga extremists?\b/i, side: 'left', note: 'An ideological label applied by the writer; check whether it is used for the other side too.', neutral: 'conservative / name the position' },
   { re: /\b(far|radical|hard)[- ]left\b|\bleft[- ]wing (radicals?|extremists?)\b/i, side: 'right', note: 'An ideological label applied by the writer; check whether it is used for the other side too.', neutral: 'progressive / name the position' },
+  { re: /\b(leftists?|marxists?|commies)\b/i, side: 'right', note: 'Ideological labels applied by the writer.', neutral: 'progressive / name the position' },
+  { re: /\b(israel|jew|america|cop)-hat(ing|ers?)\b|\bpro-terror(ist)?\b|\bterror(ist)? sympathi[sz]ers?\b|\banti-american\b/i, side: 'right', note: 'A charged label that tells the reader what to think of the person.', neutral: 'say what they said or did' },
+  { re: /\blawfare\b|\bdeep state\b|\bweaponi[sz]ed (doj|fbi|justice department)\b/i, side: 'right', note: 'Frames legal or government action as political warfare.', neutral: 'describe the case or action' },
+  { re: /\b(migrant|border) invasion\b|\binvasion (at|across|of) the (southern )?border\b/i, side: 'right', note: 'War language for immigration.', neutral: 'border crossings' },
+  { re: /\bdog[- ]whistles?\b|\bthreat to (our )?democracy\b|\b(authoritarian|fascist)(s|ism)?\b(?! (regime|government|state) (in|of) (china|russia|iran|north korea))/i, side: 'left', note: 'A charged label applied by the writer to a US political opponent.', neutral: 'say what they said or did' },
+  { re: /\bgender-affirming (care|surgery|treatment)\b/i, side: 'left', note: 'Advocates\' term.', neutral: 'medical gender transition' },
+  { re: /\breproductive (rights|freedom|health ?care|justice)\b/i, side: 'left', note: 'Advocates\' framing for abortion access.', neutral: 'abortion access' },
+  { re: /\bwithout evidence\b|\bbaseless(ly)?\b|\bfalsely (claimed|said|claims|says|suggested)\b|\bdebunked\b/i, side: 'loaded', note: 'A fact-check verdict in the news copy. Fair when the article shows the evidence; a framing choice when it doesn\'t.', neutral: 'show the evidence' },
+  { re: /\b(mobs?|thugs?)\b/i, side: 'loaded', note: 'Dehumanizing word for a group of people. Watch which side gets it.', neutral: 'crowd / protesters' },
   { re: /\bwoke\b/i, side: 'right', note: 'A pejorative used mostly by the right.', neutral: 'name the policy' },
   { re: /\bdemocrat party\b|\bdemocrat-(run|led|controlled)\b/i, side: 'right', note: '"Democrat" as an adjective is a deliberate partisan usage.', neutral: 'Democratic' },
+  { re: /\bclimate (cult|alarmis[tm]s?|hoax)\b/i, side: 'right', note: 'Dismissive framing of climate concern.', neutral: 'climate activists / climate policy' },
   { re: /\bgender ideology\b/i, side: 'right', note: 'Opponents\' framing of transgender policy.', neutral: 'policies on gender identity' },
   { re: /\bglobalists?\b/i, side: 'right', note: 'Vague pejorative; sometimes used as an antisemitic dog whistle.', neutral: 'name the people or policy' },
-  { re: /\b(mainstream|legacy|corporate) media\b|\bMSM\b/i, side: 'right', note: 'Framing other outlets as an opposing establishment.', neutral: 'news outlets' },
+  { re: /\b(mainstream|legacy|corporate) media\b|\bMSM\b/i, side: 'loaded', note: 'Frames other outlets as a hostile establishment. A horseshoe phrase: the far left and the far right both use it.', neutral: 'news outlets' },
+  { re: /\billegal settlements?\b/i, side: 'left', note: 'Most countries consider the settlements illegal; Israel disputes it. Stated as fact, it takes a side.', neutral: 'settlements' },
+  { re: /\b(the )?(israel|zionist|pro-israel) lobby\b/i, side: 'left', note: 'Frames support for Israel as a lobby\'s influence; "Zionist lobby" is often hostile.', neutral: 'name the group (e.g. AIPAC)' },
+  { re: /\banti-israel (protesters?|activists?|students?|mobs?|demonstrators?|agitators?)\b/i, side: 'right', note: 'Labels pro-Palestinian protesters by what they oppose.', neutral: 'pro-Palestinian protesters' },
+  { re: /\belection deniers?\b/i, side: 'left', note: 'A label applied by critics.', neutral: 'say what the person claimed' },
+  { re: /\bislamophob(e|es|ia|ic)\b/i, side: 'left', note: 'A label applied by the writer; check whether the article shows why.', neutral: 'describe what was said' },
   { re: /\bdisinformation\b|\bmisinformation\b/i, side: 'loaded', note: 'Labels a claim false. Check whether the article shows why.', neutral: 'false claim (with the evidence)' },
 
   // ---- Loaded wording on any topic ----
-  { re: /\b(slams?|slammed|blasts?|blasted|rips?|ripped|torches?|torched|eviscerates?|destroys?|obliterates?|lambast(s|ed)?|scorch(es|ed)?)\b/i, side: 'loaded', note: 'Combat verbs make a statement sound like an attack.', neutral: 'criticized / said' },
+  { re: /\b(slams|slammed)(?! (into|shut|the (door|brakes)))|\b(lambast(s|ed|ing)?|eviscerat(es|ed|ing)|(rips?|ripped|tears?|tore|lays?|laid) into|hits? out at|blasted|torches) (?!site|wave|radius)/i, side: 'loaded', note: 'Combat verbs make a statement sound like an attack.', neutral: 'criticized / said' },
   { re: /\b(shocking|horrific|outrageous|disgraceful|disgusting|stunning|bombshell|chilling|train[- ]wreck|unhinged|insane)\b/i, side: 'loaded', note: 'Emotional adjectives tell you how to feel instead of what happened.', neutral: 'drop the adjective' },
-  { re: /\b(meltdown|firestorm|chaos|chaotic|catastroph(e|ic)|disaster)\b/i, side: 'loaded', note: 'Dramatic framing.', neutral: 'describe what happened' },
+  { re: /\b(meltdown|firestorm|chaos|chaotic|insanity|nightmare)\b/i, side: 'loaded', note: 'Dramatic framing.', neutral: 'describe what happened' },
   { re: /\bso-called\b/i, side: 'loaded', note: '"So-called" signals the writer doesn\'t accept the name.', neutral: 'drop it' },
-  { re: /\b(claimed|claims|claiming|alleged(ly)?)\b/i, side: 'loaded', note: '"Claims" instead of "says" signals doubt. Fine when the claim is disputed; telling when it\'s used for one side only.', neutral: 'said / says' },
+  { re: /\b(claimed|claims|claiming)\b(?= (that|to|he|she|they|it|its|the|a|an|without|in)\b)(?! (responsibility|credit))/i, side: 'loaded', note: '"Claims" instead of "says" signals doubt. Fine when the claim is disputed; telling when it\'s used for one side only.', neutral: 'said / says' },
   { re: /\b(admitted|admits|conceded|refused to)\b/i, side: 'loaded', note: 'Implies wrongdoing or evasion.', neutral: 'said / did not' },
   { re: /\b(was|were) killed\b(?![^.;]{0,80}\bby\b)|\b(died|have died|has died) (in|during|after|amid) (an? )?(israeli |us |american |russian )?(strike|airstrike|attack|bombing|raid)/i, side: 'loaded', note: 'Passive voice hides who did it ("were killed" without "by"); "died in a strike" softens it. Watch whether this is applied to one side only.', neutral: 'say who killed whom' },
 ];
@@ -65,13 +80,24 @@ function splitSentences(text) {
   return text.match(/[^.!?]+(?:[.!?]+["”’']?|$)/g)?.map(s => s.trim()).filter(Boolean) || [text];
 }
 
-// Character ranges inside double quotes: the speaker's words, not the outlet's.
+// Character ranges that are someone else's words: inside double quotes (including a quote that
+// opens or closes in another sentence), or right after an attribution like "accused Israel of".
 function quoteRanges(s) {
   const out = [];
   const re = /["“]([^"“”]{3,})["”]/g;
   let m;
   while ((m = re.exec(s))) out.push([m.index, m.index + m[0].length]);
+  const opens = (s.match(/[“]/g) || []).length, closes = (s.match(/[”]/g) || []).length;
+  if (opens > closes) out.push([s.lastIndexOf('“'), s.length]);
+  if (closes > opens) out.push([0, s.indexOf('”') + 1]);
   return out;
+}
+
+const ATTRIBUTION_BEFORE = /\b(accus\w*|alleg\w*|claims? (of|that)|charges? (of|that)|called (it )?|calls (it )?|described (it )?as|label(l)?ed (it )?(as )?|branded (it )?(as )?|reading|chant\w*|signs? (saying|reading)|denies|denied|rejects?|rejected|according to)\b[^.;]{0,70}$/i;
+const ATTRIBUTION_AFTER = /^[^.;]{0,40}?,?\s*["”]?\s*(\b[A-Z][\w.'-]*\s?){1,4}(told|said|says|wrote|added|posted|tweeted)\b/;
+
+function attributed(sentence, start, end) {
+  return ATTRIBUTION_BEFORE.test(sentence.slice(0, start)) || ATTRIBUTION_AFTER.test(sentence.slice(end));
 }
 
 function scanText(paragraphs) {
@@ -86,7 +112,7 @@ function scanText(paragraphs) {
       let m;
       while ((m = re.exec(sentence))) {
         if (hits.some(h => m.index < h.end && m.index + m[0].length > h.start)) continue;
-        const quoted = quotes.some(([a, b]) => m.index >= a && m.index < b);
+        const quoted = quotes.some(([a, b]) => m.index >= a && m.index < b) || attributed(sentence, m.index, m.index + m[0].length);
         hits.push({ start: m.index, end: m.index + m[0].length, text: m[0], quoted, ...t });
       }
     }
