@@ -1030,6 +1030,7 @@ async function fetchEdition() {
     if (e.error) throw new Error(e.error);
     if (state.edition && state.edition.builtAt >= e.builtAt) { fetching = false; return; } // nothing new
     state.edition = e;
+    if (Date.now() - e.builtAt > 15 * 60000) state.retryAt = Date.now() + 20000; // got an older cached copy; a fresh one is being built
     renderChrome(); renderFeed(); renderSpin(); renderOdds(); renderTicker();
   } catch (err) {
     if (!state.edition) $('feed').innerHTML = `<div class="empty">Couldn't load the edition (${esc(err.message)}). Retrying…</div>`;
