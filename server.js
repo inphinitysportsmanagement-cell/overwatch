@@ -373,6 +373,39 @@ const HURTS_TO_LEAN = { israel: 'left', us_right: 'left', pro_palestinian: 'righ
 
 const norm = t => t.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim().toLowerCase();
 
+// ---------- AI overview for the article viewer ----------
+// Built only from the feed's headline + short summary (and other outlets' headlines on the same story),
+// never from the article's full text. Short bullets in our own words, so nothing is republished.
+const OVERVIEW_SYSTEM = `You write a short, neutral news overview for a reader who is about to open an article.
+Use ONLY the headlines and summaries given. Do not add facts, numbers, names or quotes that are not in them. Write in your own words; never copy a sentence.
+Every point must be directly supported by the given text. Do not guess causes, consequences or background. Two solid points beat four with guesses.
+Return JSON: {"points": ["2 to 4 short bullet points (max 22 words each) on what happened"], "differs": "if several outlets are given: one sentence on how their headlines frame it differently, naming outlets. Otherwise an empty string."}`;
+const overviewCache = new Map();
+async function overviewStory({ title = '', summary = '', source = '', others = [] }) {
+  title = String(title).slice(0, 300); summary = String(summary).slice(0, 400);
+  if (!title) throw new Error('No headline given.');
+  const key = title + '|' + others.length;
+  if (overviewCache.has(key)) return overviewCache.get(key);
+  const lines = [`Outlet: ${source}\nHeadline: ${title}\nSummary: ${summary}`,
+    ...others.slice(0, 8).map(o => `Outlet: ${String(o.source).slice(0, 60)} (${o.lean || 'unrated'})\nHeadline: ${String(o.title).slice(0, 300)}`)];
+  // The small free model sometimes names the list differently or returns one string; accept those, and retry once.
+  const parse = out => {
+    let pts = out?.points ?? out?.bullets ?? out?.overview ?? [];
+    if (typeof pts === 'string') pts = pts.split(/\n+|(?<=\.)\s+(?=[A-Z])/);
+    return {
+      points: (Array.isArray(pts) ? pts : []).map(x => (typeof x === 'string' ? x : x?.text || x?.point || '')).map(x => x.replace(/^[-•*\d.\s]+/, '').trim())
+        .filter(Boolean).slice(0, 4).map(x => x.slice(0, 220)),
+      differs: others.length && typeof out?.differs === 'string' ? out.differs.trim().slice(0, 300) : '',
+    };
+  };
+  let result = parse(await chatJSON(OVERVIEW_SYSTEM, lines.join('\n\n'), { maxTokens: 500, timeout: 60000 }).catch(() => null));
+  if (!result.points.length) result = parse(await chatJSON(OVERVIEW_SYSTEM, lines.join('\n\n'), { maxTokens: 500, timeout: 60000 }));
+  if (!result.points.length) throw new Error('The AI gave no overview. Try again.');
+  overviewCache.set(key, result);
+  if (overviewCache.size > 500) overviewCache.delete(overviewCache.keys().next().value);
+  return result;
+}
+
 async function analyzeArticle({ paragraphs = [], source = '', lean = '' }) {
   const paras = paragraphs.filter(p => typeof p === 'string').slice(0, 80);
   let budget = 24000;
@@ -422,6 +455,16 @@ function serve() {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ available: aiAvailable() }));
     }
+    if (url.pathname === '/api/overview' && req.method === 'POST') {
+      try {
+        const result = await overviewStory(await readBody(req));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message }));
+      }
+    }
     if (url.pathname === '/api/analyze' && req.method === 'POST') {
       try {
         const result = await analyzeArticle(await readBody(req));
@@ -447,4 +490,4 @@ function serve() {
   }).listen(PORT, () => console.log(`JNMC running → http://localhost:${PORT}`));
 }
 
-module.exports = { analyzeArticle, buildEdition, gather, currentSlot, CACHE_FILE };
+module.exports = { analyzeArticle, overviewStory, buildEdition, gather, currentSlot, CACHE_FILE };
