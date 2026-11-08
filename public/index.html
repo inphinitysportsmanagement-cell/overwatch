@@ -463,6 +463,14 @@
   .es-t { font-weight: 600; font-size: 15.5px; }
   .es-card-t { font-weight: 700; font-size: 17px; }
 
+  .es-feature { grid-template-columns: minmax(0, 1fr) 230px; }
+  @media (max-width: 760px) {
+    .es-feature { grid-template-columns: 1fr; }
+    .edition .slots, .ticker { display: none; } /* keep the first screen for the news */
+    .edition { padding: 8px 0; }
+    .mast-motto { display: none; }
+    .es-h h2 { font-size: 22px; }
+  }
   /* photos */
   .has-th { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 12px; align-items: start; }
   .has-th > a:first-child { order: 2; }
@@ -713,12 +721,11 @@ function everySide(limit) {
   const list = (state.edition.spin || []).slice(0, limit);
   const intro = `<div class="es-h"><div><div class="es-eyebrow">One story · every side</div>
       <h2>${state.desk === 'sides' ? 'Every Side' : 'Same story, different spin'}</h2>
-      <p>We match the same story across ${state.edition.sources.filter(s => s.lean).length} outlets, from far left to far right, so you can see how each side frames it, what each one leaves out, and where the two ends of the horseshoe meet.</p></div>
+      ${state.desk === 'sides' ? `<p>We match the same story across ${state.edition.sources.filter(s => s.lean).length} outlets, from far left to far right, so you can see how each side frames it, what each one leaves out, and where the two ends of the horseshoe meet.</p>` : ''}</div>
       ${state.desk === 'front' && (state.edition.spin || []).length > limit ? `<button data-desk="sides">All ${state.edition.spin.length} ›</button>` : ''}</div>`;
   if (!list.length) return `<section class="es">${intro}<div class="empty">No story has been covered across the spectrum yet in this edition. Check back soon: the site updates every 15 minutes.</div></section>`;
   const [top, ...rest] = list;
   const feature = c => `<article class="es-feature">
-      <div class="es-side">${horseshoe(c)}<div class="es-cov">${esc(coverageLine(c))}</div></div>
       <div class="es-main">
         ${storyImg(c) ? `<button class="es-photo" data-compare="${state.edition.spin.indexOf(c)}"><img src="${esc(storyImg(c))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></button>` : ''}
         <button class="es-title" data-compare="${state.edition.spin.indexOf(c)}">${esc(c.headline)}</button>
@@ -726,7 +733,8 @@ function everySide(limit) {
         ${c.horseshoe ? `<div class="shoe-note"><b>Horseshoe</b>${esc(c.horseshoe)}</div>` : ''}
         ${sideCols(c)}
         <div class="spin-actions"><button class="btn primary" data-compare="${state.edition.spin.indexOf(c)}">Compare side by side</button><button class="btn" data-share="${state.edition.spin.indexOf(c)}">Share</button></div>
-      </div></article>`;
+      </div>
+      <div class="es-side">${horseshoe(c)}<div class="es-cov">${esc(coverageLine(c))}</div></div></article>`;
   if (state.desk === 'sides') return `<section class="es">${intro}${list.map(feature).join('')}</section>`;
   return `<section class="es">${intro}${feature(top)}
     ${rest.length ? `<div class="es-grid">${rest.map(c => `<button class="es-card" data-compare="${state.edition.spin.indexOf(c)}">
