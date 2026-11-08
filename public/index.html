@@ -335,7 +335,7 @@
   .es-h h2 { margin: 2px 0 4px; font-size: 30px; font-weight: 900; letter-spacing: -.02em; line-height: 1.1; }
   .es-h p { margin: 0; color: var(--muted); font-size: 14px; max-width: 640px; line-height: 1.45; }
   .es-h button { font-size: 13px; font-weight: 700; color: var(--muted); flex: none; }
-  .es-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; background: linear-gradient(90deg, #1d4ed8, #6b7280, #c42a1c); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .es-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--brand); }
   .es-feature { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 22px; padding: 16px 0; border-top: 1px solid var(--line); }
   .es-cov { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); margin-top: -2px; }
   .es-title { display: block; text-align: left; font-size: 24px; line-height: 1.2; font-weight: 900; letter-spacing: -.01em; margin-bottom: 4px; }
@@ -368,6 +368,17 @@
     .es-h h2 { font-size: 24px; }
     .es-title { font-size: 20px; }
   }
+
+  .ldot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+  .lock { font-size: 11px; color: var(--dim); font-weight: 600; white-space: nowrap; margin-left: 4px; }
+  .k-act { font-size: 12px; font-weight: 700; color: var(--dim); margin-left: auto; padding: 0; }
+  .k-act::before { content: ''; }
+  .k-act.cmp { color: var(--brand); }
+  .k-act:hover { text-decoration: underline; color: var(--text); }
+  .free { margin-top: 16px; text-align: left; font-size: 14px; }
+  .free b { display: block; margin-bottom: 6px; }
+  .free a { display: block; padding: 6px 0; border-top: 1px solid var(--line); line-height: 1.35; }
+  .free a:hover { text-decoration: underline; }
 
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: #fff; padding: 10px 16px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; }
   .toast.on { opacity: 1; }
@@ -460,10 +471,9 @@ const byLink = new Map();
 const reg = a => { byLink.set(a.link, a); return a.link; };
 
 function kicker(a) {
-  const topic = a.tags?.find(t => t !== 'Israel' && t !== 'Military' && t !== 'Shapiro'); // every story is about Israel; show what's more specific
   const kind = articleKind(a);
-  const tag = (kind ? `<span class="kind">${kind}</span>` : '') + (topic ? `<span class="tagpill">${esc(topic)}</span>` : '');
-  return `<div class="kicker">${biasFlag(a)}${tag}<span class="src">${esc(a.source)}</span>${outletPill(a)}<span class="t">${ago(a.published)}</span>${compareFlag(a)}</div>`;
+  const dot = a.lean ? `<i class="ldot" style="background:${LEAN_COLORS[a.lean]}" title="${esc(a.source)} is rated ${esc(a.lean)}"></i>` : '';
+  return `<div class="kicker">${kind ? `<span class="kind">${kind}</span>` : ''}<span class="src">${dot}${esc(a.source)}</span>${lock(a)}<span class="t">${ago(a.published)}</span>${compareFlag(a)}</div>`;
 }
 const imgTag = a => a.image ? `<img src="${esc(a.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="imgFailed(this)">` : '';
 // A dead image link drops that picture; if it was a top-of-page slot, re-lay out so a story with a working picture leads.
@@ -476,7 +486,9 @@ function imgFailed(img) {
   a.image = null;
   if (top) { clearTimeout(relayout); relayout = setTimeout(renderFeed, 150); }
 }
-const link = (a, inner) => `<a href="${esc(reg(a))}" target="_blank" rel="noopener" data-read>${inner}</a>`;
+// Headlines open the real article on the outlet's own site, in a new tab.
+const link = (a, inner) => `<a href="${esc(reg(a))}" target="_blank" rel="noopener">${inner}</a>`;
+const lock = o => o.paywall ? `<span class="lock" title="${esc(o.source)} needs a subscription for most articles">🔒 Subscription</span>` : '';
 
 function filtered() {
   let list = state.edition.articles;
@@ -549,7 +561,7 @@ function spinBody(c, reading) {
   return `${horseshoe(c)}
     ${c.outlets.map(o => o.link === reading
       ? `<div class="outlet here"><div class="o-meta">${leanPill(o.lean)}<span class="o-src">${esc(o.source)}</span><span class="here-tag">You're reading this</span></div><div class="o-title">${esc(o.title)}</div></div>`
-      : `<a class="outlet" href="${esc(reg(o))}" target="_blank" rel="noopener" data-read><div class="o-meta">${leanPill(o.lean)}<span class="o-src">${esc(o.source)}</span></div><div class="o-title">${esc(o.title)}</div></a>`).join('')}
+      : `<a class="outlet" href="${esc(reg(o))}" target="_blank" rel="noopener"><div class="o-meta">${leanPill(o.lean)}<span class="o-src">${esc(o.source)}</span>${lock(o)}</div><div class="o-title">${esc(o.title)}</div></a>`).join('')}
     ${note}
     ${c.horseshoe ? `<div class="shoe-note"><b>Horseshoe</b>${esc(c.horseshoe)}</div>` : ''}
     ${facts ? `<div class="facts">${facts}</div>` : ''}
@@ -582,7 +594,7 @@ function sideCols(c) {
   return `<div class="es-cols">${['left', 'center', 'right'].map(side => {
     const os = c.outlets.filter(o => SIDE_OF(o.lean) === side);
     return `<div class="es-col ${side}"><div class="es-col-h">${SIDE_LABEL[side]}</div>${os.length
-      ? os.map(o => `<a class="es-o" href="${esc(reg(o))}" target="_blank" rel="noopener" data-read>${leanPill(o.lean)}<span class="es-src">${esc(o.source)}</span><span class="es-t">${esc(o.title)}</span></a>`).join('')
+      ? os.map(o => `<a class="es-o" href="${esc(reg(o))}" target="_blank" rel="noopener">${leanPill(o.lean)}<span class="es-src">${esc(o.source)}</span>${lock(o)}<span class="es-t">${esc(o.title)}</span></a>`).join('')
       : `<div class="es-none">No coverage from this side</div>`}</div>`;
   }).join('')}</div>`;
 }
@@ -841,7 +853,8 @@ function together(a) {
   return `Unusual: the wording is ${h.side}-coded but the outlet is rated ${lean}. Check whether those words are someone else's.`;
 }
 
-const compareFlag = a => { const c = sameStory(a); return c ? `<span class="flag cmp" title="Open the story to compare">${c.outlets.length} sides compared</span>` : ''; };
+// Stories other outlets also covered get a "Compare" link; the rest a quieter "Bias check".
+const compareFlag = a => { const c = sameStory(a); return `<button class="k-act${c ? ' cmp' : ''}" data-check="${esc(a.link)}">${c ? `Compare ${c.outlets.length} outlets` : 'Bias check'}</button>`; };
 
 const sameStory = a => (state.edition.spin || []).find(c => c.outlets.some(o => o.link === a.link));
 const aiByLink = new Map();
@@ -917,13 +930,21 @@ function horseshoe(c) {
   </svg></div>`;
 }
 
+// Free-to-read versions of the same story from other outlets.
+function freeVersions(a) {
+  const c = sameStory(a);
+  const free = c ? c.outlets.filter(o => o.link !== a.link && !o.paywall) : [];
+  if (!free.length) return '';
+  return `<div class="free"><b>${a.paywall ? 'Read it free from:' : 'Also covered by:'}</b>${free.map(o => `<a href="${esc(reg(o))}" target="_blank" rel="noopener">${leanPill(o.lean)} ${esc(o.source)}: ${esc(o.title)} ↗</a>`).join('')}</div>`;
+}
+
 const frameable = name => !!state.edition.sources.find(s => s.name === name)?.frameable;
 
 function openReader(href) {
   const a = byLink.get(href);
   if (!a) return false;
   const embed = a.embed || a.link;
-  const inSite = frameable(a.source);
+  const inSite = frameable(a.source) && !a.paywall;
   $('reader').innerHTML = `
     <div class="reader-bar">${leanPill(a.lean)}<span class="o-src">${esc(a.source)}</span><span class="sp"></span>
       <a href="${esc(a.link)}" target="_blank" rel="noopener">Open original ↗</a>
@@ -937,7 +958,8 @@ function openReader(href) {
           <h1>${esc(a.title)}</h1>
           ${a.summary ? `<p>${esc(a.summary)}</p>` : ''}
           <a class="go" href="${esc(a.link)}" target="_blank" rel="noopener">Read the full story at ${esc(a.source)} ↗</a>
-          <small>${esc(a.source)} doesn't allow its articles to be shown inside other sites, so this is their summary.</small>
+          <small>${a.paywall ? `${esc(a.source)} needs a subscription for most articles.` : `${esc(a.source)} opens on its own site.`}</small>
+          ${freeVersions(a)}
         </div>`}</div>`;
   document.body.classList.add('reading');
   track('read-in-site', a.source);
@@ -1142,8 +1164,8 @@ async function fetchEdition() {
 
 document.addEventListener('click', e => {
   if (e.target.closest('[data-close-reader]')) return closeReader();
-  const art = e.target.closest('a[data-read]');
-  if (art && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0 && openReader(art.getAttribute('href'))) { e.preventDefault(); return; }
+  const chk = e.target.closest('[data-check]');
+  if (chk) { e.preventDefault(); openReader(chk.dataset.check); return; }
   const out = e.target.closest('a.outlet, a.spin-mkt, a.mkt');
   if (out) track(out.classList.contains('outlet') ? 'spin-outlet-click' : 'market-click', out.textContent.trim().slice(0, 80));
   const b = e.target.closest('button'); if (!b) return;

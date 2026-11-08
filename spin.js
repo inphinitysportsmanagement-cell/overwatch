@@ -168,7 +168,7 @@ async function buildSpinChecks(articles, odds, now = Date.now()) {
       // A horseshoe note only makes sense when both ends of the spectrum covered the story.
       horseshoe: c.members.some(m => m.lean === 'far left') && c.members.some(m => m.lean === 'far right') ? ai?.horseshoe || null : null,
       ai: !!ai,
-      outlets: c.members.sort(byLean).map(m => ({ source: m.source, lean: m.lean, title: m.title, link: m.link, summary: m.summary, image: m.image, published: m.published })),
+      outlets: c.members.sort(byLean).map(m => ({ source: m.source, lean: m.lean, paywall: !!m.paywall, title: m.title, link: m.link, summary: m.summary, image: m.image, published: m.published })),
       market: matchMarket(c, odds),
     };
   })).then(list => list.filter(Boolean));

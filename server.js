@@ -19,6 +19,7 @@ const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 Chro
 // Media Bias/Fact Check for outlets AllSides doesn't rate. "far left" / "far right" extend it into a
 // 7-point horseshoe for outlets those raters flag as strongly one-sided or questionable.
 // rated: who the rating comes from, shown to readers.
+// paywall: most articles need a subscription; marked on the site and ranked a little lower.
 // desk 'compare' = outlets used only for Spin Check, not shown in the main feed.
 const SOURCES = [
   // Israel & Middle East
@@ -33,7 +34,7 @@ const SOURCES = [
   { name: 'Washington Free Beacon', desk: 'politics', lean: 'right', rated: 'AllSides', url: 'https://freebeacon.com/feed/' },
   { name: 'National Review', desk: 'politics', lean: 'lean right', rated: 'AllSides', url: 'https://www.nationalreview.com/feed/' },
   { name: 'Washington Examiner', desk: 'politics', lean: 'lean right', rated: 'AllSides', url: 'https://www.washingtonexaminer.com/feed' },
-  { name: 'The Free Press', desk: 'politics', lean: 'lean right', rated: 'AllSides', url: 'https://www.thefp.com/feed' },
+  { name: 'The Free Press', desk: 'politics', lean: 'lean right', rated: 'AllSides', paywall: true, url: 'https://www.thefp.com/feed' },
   { name: 'New York Post', desk: 'politics', lean: 'right', rated: 'AllSides', url: 'https://nypost.com/feed/' },
   { name: 'Fox News', desk: 'politics', lean: 'right', rated: 'AllSides', url: 'https://moxie.foxnews.com/google-publisher/latest.xml' },
   // OSINT, defense & intel
@@ -53,7 +54,7 @@ const SOURCES = [
   { name: 'The Intercept', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://theintercept.com/feed/?rss' },
   { name: 'Democracy Now', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://www.democracynow.org/democracynow.rss' },
   { name: 'The Guardian', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://www.theguardian.com/world/israel/rss' },
-  { name: 'New York Times', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml' },
+  { name: 'New York Times', desk: 'compare', lean: 'lean left', rated: 'AllSides', paywall: true, url: 'https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml' },
   { name: 'NPR', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://feeds.npr.org/1004/rss.xml' },
   { name: 'Al Jazeera', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
   { name: 'BBC', desk: 'compare', lean: 'center', rated: 'AllSides', also: ['bbc.com'], url: 'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml' },
@@ -155,7 +156,7 @@ async function fetchFeed(src) {
     const summary = strip(tag(item, 'description') || '').slice(0, 280);
     const link = strip(tag(item, 'link') || tag(item, 'guid') || '');
     const date = new Date(strip(tag(item, 'pubDate') || tag(item, 'dc:date') || '') || Date.now());
-    return { title, summary, link, image: findImage(item), source: src.name, desk: src.desk, lean: src.lean || null, published: isNaN(date) ? Date.now() : +date };
+    return { title, summary, link, image: findImage(item), source: src.name, desk: src.desk, lean: src.lean || null, ...(src.paywall && { paywall: true }), published: isNaN(date) ? Date.now() : +date };
   }).filter(a => a.title && a.link.startsWith('http'));
 }
 
@@ -167,7 +168,7 @@ function score(a, now) {
   const titleHits = INTERESTS.filter(i => i.re.test(a.title)).reduce((s, i) => s + i.weight, 0);
   const hoursOld = Math.max(0, (now - a.published) / 36e5);
   a.tags = tags.map(t => t.tag);
-  a.score = titleHits * 2 + tags.reduce((s, i) => s + i.weight, 0) + (a.image ? 2 : 0) - hoursOld * 0.6;
+  a.score = titleHits * 2 + tags.reduce((s, i) => s + i.weight, 0) + (a.image ? 2 : 0) - hoursOld * 0.6 - (a.paywall ? 4 : 0); // free-to-read first
   return a;
 }
 
@@ -250,7 +251,7 @@ async function gather() {
   const sourceStatus = await Promise.all(SOURCES.map(async (s, i) => {
     const items = results[i].value || [];
     return {
-      name: s.name, desk: s.desk, lean: s.lean || null, rated: s.rated || null, ok: results[i].status === 'fulfilled', count: items.length,
+      name: s.name, desk: s.desk, lean: s.lean || null, rated: s.rated || null, paywall: !!s.paywall, ok: results[i].status === 'fulfilled', count: items.length,
       domains: [...new Set([s.url, s.telegram && 'https://t.me', items[0]?.link].filter(Boolean)
         .map(u => new URL(u).hostname.replace(/^(www|rss|feeds|moxie)\./, '')).concat(s.also || []))],
       frameable: !!s.telegram || (items[0] ? await canFrame(items[0].link) : false), // Telegram uses its embed page
