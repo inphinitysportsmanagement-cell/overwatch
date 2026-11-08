@@ -6,7 +6,7 @@
 <title>JNMC · Jewish Network for Media Correctness</title>
 <link rel="icon" href="emblem.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #ffffff; --panel: #ffffff; --panel-2: #f2f2f2; --line: #e2e2e2;
@@ -383,82 +383,102 @@
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: #fff; padding: 10px 16px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; }
   .toast.on { opacity: 1; }
 
-  /* ---------- Wire-service look: white masthead, black type, thin rules, red as a small accent ---------- */
-  :root { --line: #dcdcdc; --panel-2: #f5f5f5; --brand: #d6001c; }
-  body { font-size: 15px; }
-  .topbar { background: #fff; color: var(--text); border-bottom: 1px solid var(--line); box-shadow: 0 1px 0 rgba(0,0,0,.02); }
-  .bar { height: 64px; }
-  .wm b { font-family: var(--sans); font-weight: 900; font-size: 26px; letter-spacing: -.02em; color: var(--text); }
-  .wm small { color: var(--muted); letter-spacing: .02em; text-transform: none; font-size: 11px; font-weight: 500; }
-  .emblem { width: 30px; height: 34px; }
-  nav.desks button { color: var(--text); font-weight: 600; font-size: 14.5px; border-width: 0 0 3px; }
+  /* ---------- Traditional newspaper look: serif nameplate and headlines, thin rules, quiet colour ---------- */
+  :root { --line: #d9d9d9; --panel-2: #f6f5f1; --brand: #b3001b; --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif; }
+  body { background: #fff; }
+
+  .masthead { background: #fff; color: var(--text); padding-top: 14px; }
+  .mast { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 16px; padding-bottom: 8px; }
+  .mast-side { font-family: var(--serif); font-size: 13px; color: var(--muted); line-height: 1.35; padding-bottom: 10px; }
+  .mast-l { display: flex; flex-direction: column; }
+  .mast-l #today { font-weight: 700; color: var(--text); }
+  .mast-r { text-align: right; font-style: italic; }
+  .nameplate { display: flex; align-items: center; gap: 12px; font-family: 'Playfair Display', var(--serif); font-weight: 900; font-size: 64px; line-height: 1; letter-spacing: .01em; }
+  .nameplate .emblem { width: 40px; height: 46px; }
+  .mast-motto { text-align: center; font-family: var(--serif); font-style: italic; font-size: 13px; color: var(--muted); padding: 0 0 10px; }
+  .navrow { background: #fff; border-top: 1px solid var(--text); border-bottom: 3px double var(--text); position: sticky; top: 0; z-index: 30; }
+  .navrow nav.desks { justify-content: center; height: 44px; }
+  nav.desks button { color: var(--text); font-family: var(--sans); font-weight: 600; font-size: 14px; padding: 0 14px; border-width: 0 0 3px; border-top: 0; }
   nav.desks button:hover { color: var(--brand); }
-  nav.desks button.on { color: var(--text); border-bottom-color: var(--text); }
-  .bar-date { color: var(--muted); }
-  @media (max-width: 900px) { nav.desks { border-top: 1px solid var(--line); } }
+  nav.desks button.on { color: var(--text); border-bottom-color: var(--brand); }
+  nav.desks button[data-desk="scan"] { margin-left: 0; color: var(--brand); font-weight: 700; }
+  @media (max-width: 760px) {
+    .mast { grid-template-columns: 1fr; justify-items: center; gap: 4px; }
+    .mast-side.mast-r { display: none; }
+    .mast-l { order: 2; flex-direction: row; gap: 8px; padding-bottom: 4px; }
+    .nameplate { font-size: 46px; }
+    .nameplate .emblem { width: 30px; height: 34px; }
+    .navrow nav.desks { justify-content: flex-start; }
+  }
 
   .subbar { background: #fff; }
-  .chips .lbl { font-weight: 700; color: var(--brand); text-transform: uppercase; font-size: 11.5px; letter-spacing: .04em; }
-  .chip { color: var(--text); font-weight: 500; }
+  .chips .lbl { font-family: var(--serif); font-weight: 700; font-style: italic; color: var(--brand); font-size: 14px; }
+  .chip { color: var(--text); font-family: var(--serif); font-size: 14px; }
   .chip:hover { color: var(--brand); }
-
-  .ticker { background: #fff; height: 32px; }
+  .ticker { background: var(--panel-2); height: 32px; }
   .ticker-label { background: none; color: var(--text); border-right: 1px solid var(--line); font-weight: 800; }
-  .ticker-item { color: var(--muted); }
-
-  .edition { padding: 14px 0 10px; }
-  .live { background: none; color: var(--brand); padding: 0; }
+  .edition { padding: 12px 0 10px; font-family: var(--serif); }
+  .live { background: none; color: var(--brand); padding: 0; font-family: var(--sans); }
   .live-dot { background: var(--brand); }
 
-  h1, h2, h3, h4 { letter-spacing: -.01em; }
-  .hero h1 { font-size: clamp(26px, 3vw, 38px); font-weight: 800; line-height: 1.12; letter-spacing: -.015em; }
-  .hero p { font-size: 17px; color: #333; }
-  .card h3 { font-weight: 700; font-size: 17px; line-height: 1.25; }
-  .subs .card h3 { font-size: 19px; }
-  .row h4, .rail-item h4 { font-weight: 600; }
-  .rail-item:first-of-type h4 { font-size: 16px; }
-  a:hover h1, a:hover h2, a:hover h3, a:hover h4 { text-decoration: none; color: var(--brand); }
+  /* serif headlines and summaries */
+  h1, h2, h3, h4, .es-title, .es-t, .es-card-t, .spin-title, .o-title { font-family: var(--serif); letter-spacing: 0; }
+  .hero h1 { font-size: clamp(28px, 3.2vw, 42px); font-weight: 700; line-height: 1.12; }
+  .hero p, .es-h p, .reader-card p { font-family: var(--serif); font-size: 18px; line-height: 1.5; color: #333; }
+  .card h3 { font-weight: 700; font-size: 18px; line-height: 1.22; }
+  .subs .card h3 { font-size: 20px; }
+  .row h4, .rail-item h4 { font-weight: 600; font-size: 16px; line-height: 1.28; }
+  .rail-item:first-of-type h4 { font-size: 18px; font-weight: 700; }
+  a:hover h1, a:hover h2, a:hover h3, a:hover h4 { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; color: inherit; }
 
-  /* section heads: small caps label over a black rule */
-  .rail-h, .sec-h h2 { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
-  .rail-h { border-bottom: 0; border-top: 2px solid var(--text); padding: 10px 0 2px; }
+  /* column rules */
+  .top { column-gap: 0; }
+  .rail { border-right: 1px solid var(--line); padding-right: 24px; margin-right: 24px; }
+  @media (max-width: 760px) { .rail { border-right: 0; padding-right: 0; margin-right: 0; } }
+  main { column-gap: 0; }
+  aside { border-left: 1px solid var(--line); padding-left: 24px; margin-left: 24px; }
+  @media (max-width: 1040px) { aside { border-left: 0; padding-left: 0; margin-left: 0; } }
+
+  /* section heads: serif name over a heavy rule */
+  .rail-h, .sec-h h2, .spin-head h2, .odds-head h2 { font-family: var(--serif); font-size: 20px; font-weight: 700; text-transform: none; letter-spacing: 0; }
+  .rail-h { border-bottom: 0; border-top: 2px solid var(--text); padding: 8px 0 2px; }
   .sec { padding: 28px 0 8px; border-bottom: 0; }
-  .sec-h { border-top: 2px solid var(--text); padding-top: 10px; }
+  .sec-h { border-top: 2px solid var(--text); padding-top: 8px; }
   .sec-h h2::before { display: none; }
   .sec-h button { font-weight: 600; color: var(--brand); }
   .box { border-top: 2px solid var(--text); }
-  .spin-head h2, .odds-head h2 { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
 
   .kicker { font-size: 12.5px; }
-  .kicker .src { color: var(--text); font-weight: 600; }
-  .k-act.cmp { color: var(--brand); }
+  .kicker .src { color: var(--text); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: .05em; }
+  .kind { color: var(--brand); }
 
-  /* Every Side block in the same style */
+  /* Every Side block */
   .es { border-bottom: 1px solid var(--line); padding-bottom: 26px; }
-  .es-h { border-top: 2px solid var(--text); padding-top: 10px; }
-  .es-eyebrow { font-size: 13px; color: var(--text); letter-spacing: .06em; }
-  .es-h h2 { font-size: 28px; font-weight: 800; margin-top: 6px; }
-  .es-title { font-size: 26px; font-weight: 800; }
-  .es-title:hover { text-decoration: none; color: var(--brand); }
+  .es-h { border-top: 2px solid var(--text); padding-top: 8px; }
+  .es-eyebrow { font-size: 12px; color: var(--brand); letter-spacing: .08em; }
+  .es-h h2 { font-size: 32px; font-weight: 700; margin-top: 4px; }
+  .es-title { font-size: 28px; font-weight: 700; }
+  .es-title:hover, .es-o:hover .es-t, .es-card:hover .es-card-t { text-decoration: underline; text-decoration-thickness: 1px; color: inherit; }
   .es-col { border-top-width: 3px; }
-  .es-t { font-weight: 600; }
-  .es-o:hover .es-t, .es-card:hover .es-card-t { text-decoration: none; color: var(--brand); }
-  .es-card-t { font-weight: 700; }
+  .es-t { font-weight: 600; font-size: 15.5px; }
+  .es-card-t { font-weight: 700; font-size: 17px; }
 
-  footer { border-top: 2px solid var(--text); background: var(--panel-2); color: var(--muted); }
-  nav.desks button[data-desk="scan"] { color: var(--brand); font-weight: 700; }
+  footer { border-top: 3px double var(--text); background: var(--panel-2); color: var(--muted); }
   footer .brand { color: var(--text); }
-  footer .srcs .bad { color: var(--dim); }
+  footer .wm b { font-family: 'Playfair Display', var(--serif); font-weight: 900; font-size: 28px; letter-spacing: 0; }
+  footer .wm small { color: var(--muted); text-transform: none; letter-spacing: 0; }
 </style>
 </head>
 <body>
-<header class="topbar">
-  <div class="wrap bar">
-    <a class="brand" href="./" aria-label="JNMC home"><img class="emblem" src="emblem.svg" alt=""><span class="wm"><b>JNMC</b><small>Jewish Network for Media Correctness</small></span></a>
-    <nav class="desks" id="desks" aria-label="Sections"></nav>
-    <div class="bar-date" id="today"></div>
+<header class="masthead">
+  <div class="wrap mast">
+    <div class="mast-side mast-l"><span id="today"></span><span class="mast-ed" id="mastEd"></span></div>
+    <a class="nameplate" href="./" aria-label="JNMC home"><img class="emblem" src="emblem.svg" alt=""><span>JNMC</span></a>
+    <div class="mast-side mast-r">Jewish Network for<br>Media Correctness</div>
   </div>
+  <div class="mast-motto">One story · Every side</div>
 </header>
+<div class="navrow"><div class="wrap"><nav class="desks" id="desks" aria-label="Sections"></nav></div></div>
 <div class="subbar"><div class="wrap"><div class="chips" id="chips"></div></div></div>
 <div class="ticker"><div class="ticker-label">MARKETS</div><div class="ticker-track" id="tickerTrack"></div></div>
 
@@ -1073,6 +1093,7 @@ function renderChrome() {
   document.body.classList.toggle('tool', state.desk === 'scan');
   const e = state.edition;
   $('edName').textContent = e.name;
+  $('mastEd').textContent = e.name;
   const slotHour = new Date(e.slot).getHours();
   $('slots').innerHTML = SLOT_HOURS.map(h => `<span class="slot ${h === slotHour ? 'now' : h < slotHour ? 'past' : ''}">${String(h).padStart(2, '0')}:00</span>`).join('');
   $('desks').innerHTML = DESKS.map(d => `<button class="${d.id === state.desk ? 'on' : ''}" data-desk="${d.id}">${d.label}</button>`).join('');
