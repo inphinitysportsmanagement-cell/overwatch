@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try { document.documentElement.dataset.theme = localStorage.getItem('ow.theme') || 'light'; } catch { document.documentElement.dataset.theme = 'light'; }</script>
 <title>JNMC · Jewish Network for Media Correctness</title>
 <link rel="icon" href="emblem.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -471,6 +472,39 @@
     .mast-motto { display: none; }
     .es-h h2 { font-size: 22px; }
   }
+  /* pop-outs */
+  body.reader-full .reader { width: 100%; }
+  .rd-cmp { padding: 16px 20px; max-width: 900px; margin: 0 auto; width: 100%; }
+  .pop-btn { align-self: flex-end; font-size: 12px; font-weight: 700; color: var(--muted); border: 1px solid var(--line); padding: 5px 10px; }
+  .pop-btn:hover { color: var(--text); border-color: var(--text); }
+  aside.popped { position: fixed; inset: 0; z-index: 45; background: var(--bg); overflow-y: auto; margin: 0; border: 0;
+    padding: 20px max(20px, calc(50vw - 520px)) 60px; display: flex; }
+  aside.popped .pop-btn { position: sticky; top: 0; z-index: 1; background: var(--bg); }
+  aside.popped #spin { display: block !important; }
+  body.side-open { overflow: hidden; }
+  @media (max-width: 1040px) { .pop-btn { display: none; } }
+
+  /* colour modes */
+  .navwrap { display: flex; align-items: center; gap: 12px; }
+  .navwrap nav.desks { flex: 1; min-width: 0; }
+  .theme-sw { display: flex; flex: none; border: 1px solid var(--line); }
+  .theme-sw button { width: 30px; height: 26px; font-size: 14px; color: var(--muted); }
+  .theme-sw button.on { background: var(--text); color: var(--bg); }
+  :root { --body: #333; }
+  html[data-theme="grey"] { --bg: #2b2d31; --panel: #2b2d31; --panel-2: #36393f; --line: #474a51; --text: #eceef1; --muted: #b7bbc2; --dim: #8d929b; --body: #d3d6db;
+    --brand: #ff6b78; --amber: #f2b45c; --amber-soft: #3d3426; --bar: #1f2125; }
+  html[data-theme="dark"] { --bg: #0e0f11; --panel: #0e0f11; --panel-2: #1a1c20; --line: #2b2e34; --text: #f1f2f4; --muted: #a9adb5; --dim: #7c818a; --body: #cfd2d7;
+    --brand: #ff5c6c; --amber: #f2b45c; --amber-soft: #2e2719; --bar: #000; }
+  html[data-theme="grey"], html[data-theme="dark"] { color-scheme: dark; }
+  html:not([data-theme="light"]) body, html:not([data-theme="light"]) .masthead, html:not([data-theme="light"]) .navrow,
+  html:not([data-theme="light"]) .subbar, html:not([data-theme="light"]) .outlet.here { background: var(--bg); }
+  html:not([data-theme="light"]) .hero p, html:not([data-theme="light"]) .es-h p, html:not([data-theme="light"]) .reader-card p { color: var(--body); }
+  html:not([data-theme="light"]) .btn.primary, html:not([data-theme="light"]) .toast { color: var(--bg); }
+  html:not([data-theme="light"]) .shoe-note { background: #1f2a44; color: #b9cdfa; }
+  html:not([data-theme="light"]) .out .bar { background: var(--panel-2); border-right-color: var(--muted); }
+  html:not([data-theme="light"]) .nameplate .emblem { filter: drop-shadow(0 0 1px rgba(255,255,255,.4)); }
+  html:not([data-theme="light"]) img { opacity: .92; }
+
   /* photos */
   .has-th { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 12px; align-items: start; }
   .has-th > a:first-child { order: 2; }
@@ -505,7 +539,8 @@
   </div>
   <div class="mast-motto">One story · Every side</div>
 </header>
-<div class="navrow"><div class="wrap"><nav class="desks" id="desks" aria-label="Sections"></nav></div></div>
+<div class="navrow"><div class="wrap navwrap"><nav class="desks" id="desks" aria-label="Sections"></nav>
+  <div class="theme-sw" role="group" aria-label="Colour mode"><button data-theme-set="light" title="Light">☀</button><button data-theme-set="grey" title="Grey">◐</button><button data-theme-set="dark" title="Dark">☾</button></div></div></div>
 <div class="subbar"><div class="wrap"><div class="chips" id="chips"></div></div></div>
 <div class="ticker"><div class="ticker-label">MARKETS</div><div class="ticker-track" id="tickerTrack"></div></div>
 
@@ -519,7 +554,8 @@
 
   <main>
     <section id="feed"><div class="loading">Loading the latest edition…</div></section>
-    <aside>
+    <aside id="side">
+      <button class="pop-btn" data-pop-side>⤢ Pop out</button>
       <div class="box" id="spin"></div>
       <div class="box">
         <div class="odds-head"><h2>The Odds <small>via Polymarket</small></h2></div>
@@ -535,7 +571,7 @@
     <div class="brand"><img class="emblem" src="emblem.svg" alt=""><span class="wm"><b>JNMC</b><small>Jewish Network for Media Correctness</small></span></div>
     <div id="built"></div>
     <div class="srcs" id="srcs"></div>
-    <p>Outlet ratings come from AllSides, or Media Bias/Fact Check where AllSides has none. Headline labels come from a word list that flags left-coded, right-coded and loaded wording; they are signals, not verdicts. Every Side notes are written by AI from headlines and summaries only. Always read the originals.</p>
+    <p>Outlet ratings come from AllSides, or Media Bias/Fact Check where AllSides has none. Every Side notes are written by AI from headlines and summaries only. Always read the originals.</p>
   </div>
 </footer>
 <div class="toast" id="toast"></div>
@@ -553,7 +589,6 @@ const DESKS = [
   { id: 'iran', label: 'Iran & Proxies', match: has('Iran', 'Hezbollah', 'Houthis') },
   { id: 'antisemitism', label: 'Jewish World', match: has('Antisemitism', 'Jewish World') },
   { id: 'osint', label: 'OSINT & Defense', match: a => a.desk === 'osint' },
-  { id: 'scan', label: 'Bias Check' },
 ];
 const ODDS_DESKS = [{ id: 'mideast', label: 'Middle East' }];
 const SLOT_HOURS = [6, 12, 18];
@@ -565,9 +600,13 @@ const LEAN_COLORS = { 'far left': '#1e2f8a', left: '#1d4ed8', 'lean left': '#5b8
 const state = { scan: { url: '', text: '', error: '', result: null, filter: null, full: false, ai: {} }, desk: initialDesk(), topic: null, oddsDesk: load('oddsDesk', 'mideast'), edition: null, retryAt: 0 };
 // The Bias Check has its own address (#bias-check) so it can be opened and shared as a page.
 function initialDesk() {
-  if (location.hash === '#bias-check') return 'scan';
   const d = load('desk', 'front');
   return DESKS.some(x => x.id === d) && d !== 'scan' ? d : 'front';
+}
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  save('theme', t);
+  document.querySelectorAll('[data-theme-set]').forEach(b => b.classList.toggle('on', b.dataset.themeSet === t));
 }
 function load(k, d) { try { return localStorage.getItem('ow.' + k) || d; } catch { return d; } }
 function save(k, v) { try { localStorage.setItem('ow.' + k, v); } catch {} }
@@ -974,7 +1013,7 @@ function together(a) {
 }
 
 // Stories other outlets also covered get a "Compare" link; the rest a quieter "Bias check".
-const compareFlag = a => { const c = sameStory(a); return `<button class="k-act${c ? ' cmp' : ''}" data-check="${esc(a.link)}">${c ? `Compare ${c.outlets.length} outlets` : 'Bias check'}</button>`; };
+const compareFlag = a => { const c = sameStory(a); return c ? `<button class="k-act cmp" data-check="${esc(a.link)}">Compare ${c.outlets.length} outlets</button>` : ''; };
 
 const sameStory = a => (state.edition.spin || []).find(c => c.outlets.some(o => o.link === a.link));
 const aiByLink = new Map();
@@ -1067,9 +1106,10 @@ function openReader(href) {
   const inSite = frameable(a.source) && !a.paywall;
   $('reader').innerHTML = `
     <div class="reader-bar">${leanPill(a.lean)}<span class="o-src">${esc(a.source)}</span><span class="sp"></span>
+      <button data-pop-reader>${document.body.classList.contains('reader-full') ? '⤡ Side panel' : '⤢ Full screen'}</button>
       <a href="${esc(a.link)}" target="_blank" rel="noopener">Open original ↗</a>
       <button data-close-reader aria-label="Close reader">Close ✕</button></div>
-    ${articleCheck(a).replace('<details class="ac"', `<details class="ac" data-for="${esc(a.link)}"`)}
+    ${sameStory(a) ? `<div class="ac-same rd-cmp"><b>How every side covered this</b>${spinBody(sameStory(a), a.link)}</div>` : ''}
     <div class="reader-body">${inSite
       ? `<iframe src="${esc(embed)}" title="${esc(a.title)}" referrerpolicy="no-referrer-when-downgrade"></iframe>`
       : `<div class="reader-card">
@@ -1086,7 +1126,10 @@ function openReader(href) {
   return true;
 }
 function closeReader() { document.body.classList.remove('reading'); setTimeout(() => { if (!document.body.classList.contains('reading')) $('reader').innerHTML = ''; }, 300); }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReader(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if ($('side').classList.contains('popped')) $('side').querySelector('[data-pop-side]').click(); else closeReader();
+});
 
 function marketHtml(m) {
   const head = `<div class="mkt-top">${m.image ? `<img src="${esc(m.image)}" alt="" loading="lazy">` : ''}<div><div class="mkt-title">${esc(m.title)}</div><div class="mkt-vol">${money(m.volume24h)} 24h vol · ${money(m.volume)} total</div></div>`;
@@ -1120,7 +1163,7 @@ function goDesk(id) {
   history.replaceState(null, '', id === 'scan' ? '#bias-check' : location.pathname + location.search);
   renderChrome();
 }
-addEventListener('hashchange', () => { goDesk(location.hash === '#bias-check' ? 'scan' : load('desk', 'front')); renderFeed(); });
+addEventListener('hashchange', () => { goDesk(load('desk', 'front')); renderFeed(); });
 
 function renderChrome() {
   document.body.classList.toggle('tool', state.desk === 'scan');
@@ -1290,6 +1333,20 @@ async function fetchEdition() {
 
 document.addEventListener('click', e => {
   if (e.target.closest('[data-close-reader]')) return closeReader();
+  if (e.target.closest('[data-pop-reader]')) {
+    const full = document.body.classList.toggle('reader-full');
+    e.target.closest('[data-pop-reader]').textContent = full ? '⤡ Side panel' : '⤢ Full screen';
+    return;
+  }
+  const popSide = e.target.closest('[data-pop-side]');
+  if (popSide) {
+    const on = $('side').classList.toggle('popped');
+    document.body.classList.toggle('side-open', on);
+    popSide.textContent = on ? 'Close ✕' : '⤢ Pop out';
+    return;
+  }
+  const th = e.target.closest('[data-theme-set]');
+  if (th) return setTheme(th.dataset.themeSet);
   const chk = e.target.closest('[data-check]');
   if (chk) { e.preventDefault(); openReader(chk.dataset.check); return; }
   const out = e.target.closest('a.outlet, a.spin-mkt, a.mkt');
@@ -1308,6 +1365,7 @@ document.addEventListener('click', e => {
   renderChrome(); renderFeed(); window.scrollTo({ top: $('desks').offsetTop - 8, behavior: 'smooth' });
 });
 
+setTheme(document.documentElement.dataset.theme || 'light');
 tickClock(); setInterval(tickClock, 1000);
 fetchEdition();
 startMetrics();
