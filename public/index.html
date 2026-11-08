@@ -1268,7 +1268,12 @@ let fetching = false;
 async function fetchEdition() {
   if (fetching) return; fetching = true;
   try {
-    // Live build from the server; the saved copy is the backup if that ever fails.
+    // First visit: show the saved copy straight away (it loads instantly), then swap in the live build,
+    // which can take up to a minute right after the site is updated.
+    if (!state.edition) {
+      const saved = await fetch('edition.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).catch(() => null);
+      if (saved && !saved.error) { state.edition = saved; renderChrome(); renderFeed(); renderSpin(); renderOdds(); renderTicker(); }
+    }
     let e = await fetch('api/edition').then(r => (r.ok ? r.json() : null)).catch(() => null);
     if (!e || e.error) e = await (await fetch('edition.json?t=' + Date.now(), { cache: 'no-store' })).json();
     if (e.error) throw new Error(e.error);
