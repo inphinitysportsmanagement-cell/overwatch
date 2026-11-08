@@ -53,7 +53,6 @@ const SOURCES = [
   { name: 'The Intercept', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://theintercept.com/feed/?rss' },
   { name: 'Democracy Now', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://www.democracynow.org/democracynow.rss' },
   { name: 'The Guardian', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://www.theguardian.com/world/israel/rss' },
-  { name: 'CNN', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'http://rss.cnn.com/rss/edition_meast.rss' },
   { name: 'New York Times', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml' },
   { name: 'NPR', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://feeds.npr.org/1004/rss.xml' },
   { name: 'Al Jazeera', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
@@ -76,7 +75,8 @@ const INTERESTS = [
   { tag: 'Iran', weight: 4, core: true, re: /\b(iran\w*|irgc|tehran|khamenei|ayatollah)\b/i },
   { tag: 'Hezbollah', weight: 4, core: true, re: /\b(hezbollah|lebanon|lebanese|beirut|nasrallah)\b/i },
   { tag: 'Houthis', weight: 3, core: true, re: /\b(houthi\w*|yemen\w*|red sea)\b/i },
-  { tag: 'Antisemitism', weight: 4, core: true, re: /\b(antisemit\w*|anti-semit\w*|jews|jewish|synagogues?|zionis\w*)\b/i },
+  { tag: 'Antisemitism', weight: 4, core: true, re: /\b(antisemit\w*|anti-semit\w*|jew-hat\w*|kristallnacht|holocaust|farrakhan|nation of islam|swastikas?|hate crimes?)\b/i },
+  { tag: 'Jewish World', weight: 2, core: true, re: /\b(jews|jewish|synagogues?|zionis\w*|rabbis?|aipac)\b/i },
   { tag: 'Military', weight: 2, re: /\b(missiles?|drones?|airstrikes?|strikes?|navy|warship|satellite imagery|osint|intelligence)\b/i },
   { tag: 'Shapiro', weight: 3, re: /\b(ben shapiro)\b/i },
 ];
@@ -159,9 +159,11 @@ async function fetchFeed(src) {
   }).filter(a => a.title && a.link.startsWith('http'));
 }
 
+// A topic counts if it's in the headline, or named at least twice in the summary. One passing mention
+// in a summary ("…a Jewish conservative…") doesn't make a story about that topic.
+const mentions = (re, text) => (text.match(new RegExp(re.source, 'gi')) || []).length;
 function score(a, now) {
-  const text = `${a.title} ${a.summary}`;
-  const tags = INTERESTS.filter(i => i.re.test(text));
+  const tags = INTERESTS.filter(i => i.re.test(a.title) || mentions(i.re, a.summary) >= 2);
   const titleHits = INTERESTS.filter(i => i.re.test(a.title)).reduce((s, i) => s + i.weight, 0);
   const hoursOld = Math.max(0, (now - a.published) / 36e5);
   a.tags = tags.map(t => t.tag);
@@ -242,9 +244,8 @@ async function dropDeadImages(articles) {
   console.log(`[edition] images: ${urls.length - dead.size} ok, ${dead.size} dead`);
 }
 
-async function buildEdition(slot = currentSlot()) {
-  const started = Date.now();
-  console.log(`[edition] building ${EDITION_NAMES[slot.getHours()]} for ${slot.toDateString()}…`);
+// Every feed's stories from the last 3 days that are about Israel, best first (includes the compare-only outlets).
+async function gather() {
   const results = await Promise.allSettled(SOURCES.map(fetchFeed));
   const sourceStatus = await Promise.all(SOURCES.map(async (s, i) => {
     const items = results[i].value || [];
@@ -266,6 +267,13 @@ async function buildEdition(slot = currentSlot()) {
     .map(a => score(a, now))
     .filter(isIsraelStory)
     .sort((a, b) => b.score - a.score);
+  return { articles, sourceStatus, now };
+}
+
+async function buildEdition(slot = currentSlot()) {
+  const started = Date.now();
+  console.log(`[edition] building ${EDITION_NAMES[slot.getHours()]} for ${slot.toDateString()}…`);
+  const { articles, sourceStatus, now } = await gather();
   await dropDeadImages(articles);
 
   const odds = await fetchOdds();
@@ -402,4 +410,4 @@ function serve() {
   }).listen(PORT, () => console.log(`JNMC running → http://localhost:${PORT}`));
 }
 
-module.exports = { analyzeArticle, buildEdition, currentSlot, CACHE_FILE };
+module.exports = { analyzeArticle, buildEdition, gather, currentSlot, CACHE_FILE };

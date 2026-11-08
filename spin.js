@@ -7,7 +7,8 @@ const { chatJSON, aiAvailable } = require('./ai');
 const STOP = new Set(('the a an and or but of to in on at for with from by as is are was were be been has have had it its this that these those ' +
   'after before over under into amid about says said say new news live update updates report reports reported how why what who will would could ' +
   'not more than first last also just video watch latest day week year years people his her their they them our we you your out up off ' +
-  'against while during between amid near some many most other than then there here when where which per back down ahead') .split(' '));
+  'against while during between amid near some many most other than then there here when where which per back down ahead ' +
+  'tens dozens hundreds thousands millions thousand hundred dozen million killed opinion analysis comment explainer') .split(' '));
 const SHORT_KEEP = new Set(['idf', 'us', 'un', 'gop', 'nato', 'irgc', 'uae', 'eu']);
 
 const LEFT = new Set(['far left', 'left', 'lean left']);
@@ -16,56 +17,86 @@ const MAX_CHECKS = 3;
 
 const PHRASES = /\b(west bank|gaza strip|white house|united states|united nations|new york|tel aviv|red sea|south lebanon|southern lebanon)\b/g;
 
+// Light stemming so "forming"/"form", "picks"/"picked"/"pick", "talks"/"talk" match.
+const stem = w => w.length > 5 && w.endsWith('ing') ? w.slice(0, -3)
+  : w.length > 4 && w.endsWith('ed') ? w.slice(0, -2)
+  : w.length > 4 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w;
+
 function keywords(text) {
   return new Set(text.toLowerCase().replace(/[’']s\b/g, '').replace(PHRASES, m => m.replace(' ', '')).split(/[^a-z0-9]+/)
     .filter(w => (w.length > 3 || SHORT_KEEP.has(w)) && !STOP.has(w))
-    .map(w => (w.length > 4 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w)));
+    .map(stem));
 }
 const overlap = (a, b) => { let n = 0; for (const w of a) if (b.has(w)) n++; return n; };
 
-// Words that show up in lots of headlines today ("israel", "midterm") say little about whether two
-// stories are the same event. Weight shared words by how rare they are.
-function rarity(pool) {
-  const df = new Map();
-  for (const p of pool) for (const w of p.kw) df.set(w, (df.get(w) || 0) + 1);
-  return w => Math.log(pool.length / (df.get(w) || 1));
-}
+const MAX_STORIES = 14;
+const LEAN_SIDE = l => (LEFT.has(l) ? 'left' : RIGHT.has(l) ? 'right' : l === 'center' ? 'center' : null);
 
+// Groups headlines from different outlets that are about the same story. Big stories come first:
+// the story covered by the most outlets is grouped, then the next, and so on.
 function findClusters(articles, now) {
   const pool = articles
-    .filter(a => a.desk !== 'osint' && now - a.published < 36 * 36e5)
-    .map(a => ({ a, kw: keywords(a.title) }));
-  const weight = rarity(pool);
-  const RARE = Math.log(pool.length / 6); // a word in at most ~6 headlines
-  const sameEvent = (x, y) => {
-    let sum = 0, rare = 0, shared = 0;
-    for (const w of x) if (y.has(w)) { const wt = weight(w); sum += wt; shared++; if (wt >= RARE) rare++; }
-    if (shared / Math.min(x.size, y.size) < 0.4) return 0; // most of the shorter headline's key words must match
-    return rare >= 2 || (shared >= 3 && rare >= 1 && sum >= 9) ? sum : 0;
+    .filter(a => a.lean && now - a.published < 48 * 36e5) // rated outlets only (OSINT channels have no lean)
+    .map(a => ({ a, kw: keywords(a.title) }))
+    .filter(p => p.kw.size >= 2);
+  const df = new Map();
+  for (const p of pool) for (const w of p.kw) df.set(w, (df.get(w) || 0) + 1);
+  // Words in lots of today's headlines ("israel", "trump") say little; a name like "eisenkot" says a lot,
+  // even when it's the biggest story of the day.
+  const idf = w => Math.log((pool.length + 1) / (df.get(w) || 1));
+  const GENERIC_DF = Math.max(8, pool.length * 0.2); // the top story itself can be in ~15% of headlines
+  const strong = w => (df.get(w) || 0) <= GENERIC_DF && !GENERIC.has(w);
+  const mass = kw => [...kw].reduce((s, w) => s + idf(w), 0);
+  const sim = (x, y) => {
+    let shared = 0, sharedStrong = 0;
+    for (const w of x.kw) if (y.kw.has(w)) { shared += idf(w); if (strong(w)) sharedStrong++; }
+    if (sharedStrong < 2) return 0;
+    return shared / Math.min(x.mass, y.mass);
   };
+  for (const p of pool) p.mass = mass(p.kw);
+
+  const SAME = 0.34;
+  const neighbors = pool.map(x => pool.filter(y => y !== x && y.a.source !== x.a.source && sim(x, y) >= SAME));
   const used = new Set();
   const clusters = [];
-
-  // Seeds: the stories this reader cares about most, from his own desks.
-  const seeds = pool.filter(p => p.a.desk !== 'compare').sort((x, y) => y.a.score - x.a.score).slice(0, 60);
-  for (const seed of seeds) {
-    if (used.has(seed.a) || seed.kw.size < 3) continue;
-    const bySource = new Map([[seed.a.source, { ...seed, hits: Infinity }]]);
-    for (const p of pool) {
-      if (p.a === seed.a || used.has(p.a)) continue;
-      const hits = sameEvent(seed.kw, p.kw);
-      if (!hits) continue;
-      const prev = bySource.get(p.a.source);
-      if (!prev || hits > prev.hits) bySource.set(p.a.source, { ...p, hits });
+  const order = pool.map((p, i) => i).sort((i, j) => new Set(neighbors[j].map(n => n.a.source)).size - new Set(neighbors[i].map(n => n.a.source)).size);
+  for (const i of order) {
+    const seed = pool[i];
+    if (used.has(seed.a)) continue;
+    const bySource = new Map([[seed.a.source, { p: seed, s: Infinity }]]);
+    // The seed's matches, plus close matches of those (one step), so one story isn't split in two.
+    const near = new Set(neighbors[i]);
+    for (const n of neighbors[i]) for (const m of neighbors[pool.indexOf(n)]) if (m !== seed && sim(seed, m) >= SAME * 0.6) near.add(m);
+    for (const n of near) {
+      if (used.has(n.a)) continue;
+      const s = sim(seed, n), prev = bySource.get(n.a.source);
+      if (!prev || s > prev.s) bySource.set(n.a.source, { p: n, s });
     }
-    const members = [...bySource.values()].map(m => m.a);
-    const leans = members.map(m => m.lean);
-    if (members.length < 3 || !leans.some(l => LEFT.has(l)) || !leans.some(l => RIGHT.has(l))) continue;
+    const members = [...bySource.values()].map(m => m.p.a);
+    // 3+ outlets, or 2 that lean different ways (that's still a left-vs-right comparison).
+    const sides = new Set(members.map(m => LEAN_SIDE(m.lean)));
+    const fit = Math.min(...[...bySource.values()].map(m => m.s));
+    if (members.length < 2 || (members.length === 2 && (sides.size < 2 || fit < 0.5))) continue; // a pair must be a close match
     members.forEach(m => used.add(m));
-    clusters.push({ seed: seed.a, members, kw: seed.kw });
-    if (clusters.length === MAX_CHECKS) break;
+    // Lead with the most-covered, highest-interest headline from the reader's own desks.
+    const lead = members.filter(m => m.desk !== 'compare').sort((x, y) => y.score - x.score)[0] || seed.a;
+    clusters.push({ seed: lead, members, kw: seed.kw, fit });
   }
-  return clusters;
+  // Two groups that share the story's key words (e.g. "eisenkot" + "form") are one story told twice: merge them.
+  const signature = c => {
+    const count = new Map();
+    for (const m of c.members) for (const w of keywords(m.title)) if (strong(w)) count.set(w, (count.get(w) || 0) + 1);
+    return new Set([...count].filter(([, n]) => n >= Math.max(2, c.members.length / 2)).map(([w]) => w));
+  };
+  for (let i = 0; i < clusters.length; i++) {
+    for (let j = clusters.length - 1; j > i; j--) {
+      if (overlap(signature(clusters[i]), signature(clusters[j])) < 2) continue;
+      const have = new Set(clusters[i].members.map(m => m.source));
+      clusters[i].members.push(...clusters[j].members.filter(m => !have.has(m.source)));
+      clusters.splice(j, 1);
+    }
+  }
+  return clusters.slice(0, MAX_STORIES);
 }
 
 // Words every Israel story shares; a market has to match the story on something more specific.
@@ -121,12 +152,12 @@ async function aiNote(cluster) {
 
 async function buildSpinChecks(articles, odds, now = Date.now()) {
   const clusters = findClusters(articles, now);
-  return Promise.all(clusters.map(async c => {
-    let ai = await aiNote(c);
+  return Promise.all(clusters.map(async (c, i) => {
+    // AI notes for the biggest stories only (the free AI answers about once a minute).
+    let ai = i < MAX_CHECKS && c.members.length >= 3 ? await aiNote(c) : null;
     if (ai?.exclude.length) {
       const kept = c.members.filter(m => !ai.exclude.includes(m.source));
-      const leans = kept.map(m => m.lean);
-      if (kept.length < 3 || !leans.some(l => LEFT.has(l)) || !leans.some(l => RIGHT.has(l))) return null;
+      if (kept.length < 2 || new Set(kept.map(m => LEAN_SIDE(m.lean))).size < 2) return null;
       if (kept.length < c.members.length) { c.members = kept; ai = await aiNote(c); } // re-run on the true set
     }
     return {
@@ -143,4 +174,4 @@ async function buildSpinChecks(articles, odds, now = Date.now()) {
   })).then(list => list.filter(Boolean));
 }
 
-module.exports = { buildSpinChecks };
+module.exports = { buildSpinChecks, findClusters };

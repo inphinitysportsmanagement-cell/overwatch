@@ -329,6 +329,46 @@
   .ac-same .shoe { max-width: 320px; margin: 4px auto 6px; }
   .flag.cmp { background: none; color: var(--text); border: 1px solid currentColor; }
 
+  /* Every Side */
+  .es { padding: 8px 0 22px; border-bottom: 3px solid var(--text); margin-bottom: 8px; }
+  .es-h { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 14px; }
+  .es-h h2 { margin: 2px 0 4px; font-size: 30px; font-weight: 900; letter-spacing: -.02em; line-height: 1.1; }
+  .es-h p { margin: 0; color: var(--muted); font-size: 14px; max-width: 640px; line-height: 1.45; }
+  .es-h button { font-size: 13px; font-weight: 700; color: var(--muted); flex: none; }
+  .es-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; background: linear-gradient(90deg, #1d4ed8, #6b7280, #c42a1c); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .es-feature { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 22px; padding: 16px 0; border-top: 1px solid var(--line); }
+  .es-cov { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); margin-top: -2px; }
+  .es-title { display: block; text-align: left; font-size: 24px; line-height: 1.2; font-weight: 900; letter-spacing: -.01em; margin-bottom: 4px; }
+  .es-title:hover { text-decoration: underline; }
+  .es-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+  .es-col { border-top: 4px solid; padding-top: 6px; }
+  .es-col.left { border-color: #1d4ed8; } .es-col.center { border-color: #6b7280; } .es-col.right { border-color: #c42a1c; }
+  .es-col-h { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .es-o { display: block; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .es-o:last-child { border-bottom: 0; }
+  .es-src { font-size: 12px; font-weight: 800; margin-left: 6px; }
+  .es-t { display: block; font-size: 14px; line-height: 1.3; font-weight: 600; margin-top: 3px; }
+  .es-o:hover .es-t { text-decoration: underline; }
+  .es-none { font-size: 13px; color: var(--dim); font-style: italic; padding: 7px 0; }
+  .es-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; border-top: 1px solid var(--line); }
+  .es-card { display: block; text-align: left; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .es-card-t { display: block; font-size: 16px; font-weight: 800; line-height: 1.25; }
+  .es-card:hover .es-card-t { text-decoration: underline; }
+  .es-card-m { display: flex; align-items: center; gap: 8px; margin-top: 7px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .es-card-c { display: block; font-size: 12px; color: var(--dim); margin-top: 3px; }
+  .spec { display: inline-flex; gap: 2px; }
+  .spec i { width: 14px; height: 8px; background: var(--line); display: block; }
+  .shoe-tag { color: #6d28d9; }
+  .chip-n { margin-left: 5px; font-size: 11px; color: var(--dim); font-weight: 700; }
+  @media (max-width: 760px) {
+    .es-feature { grid-template-columns: 1fr; gap: 6px; }
+    .es-side { max-width: 260px; margin: 0 auto; }
+    .es-cols, .es-grid { grid-template-columns: 1fr; }
+    .es-h { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .es-h h2 { font-size: 24px; }
+    .es-title { font-size: 20px; }
+  }
+
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: #fff; padding: 10px 16px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; }
   .toast.on { opacity: 1; }
 </style>
@@ -382,14 +422,14 @@
 const has = (...tags) => a => tags.some(t => a.tags.includes(t));
 const DESKS = [
   { id: 'front', label: 'Front Page' },
+  { id: 'sides', label: 'Every Side' },
   { id: 'israel', label: 'Israel', match: has('Israel') },
-  { id: 'gaza', label: 'Gaza & Hostages', match: has('Gaza', 'Hostages', 'West Bank') },
+  { id: 'gaza', label: 'Gaza & West Bank', match: has('Gaza', 'Hostages', 'West Bank') },
   { id: 'iran', label: 'Iran & Proxies', match: has('Iran', 'Hezbollah', 'Houthis') },
-  { id: 'antisemitism', label: 'Antisemitism', match: has('Antisemitism') },
+  { id: 'antisemitism', label: 'Jewish World', match: has('Antisemitism', 'Jewish World') },
   { id: 'osint', label: 'OSINT & Defense', match: a => a.desk === 'osint' },
   { id: 'scan', label: 'Bias Check' },
 ];
-const TOPICS = ['Hostages', 'West Bank', 'Hezbollah', 'Houthis', 'Iran', 'Military', 'Shapiro'];
 const ODDS_DESKS = [{ id: 'mideast', label: 'Middle East' }];
 const SLOT_HOURS = [6, 12, 18];
 // Visitor metrics (GoatCounter: free, no cookies). Set to your GoatCounter code, e.g. 'overwatch-news'.
@@ -448,6 +488,8 @@ function filtered() {
 
 function renderFeed() {
   if (state.desk === 'scan') return renderScanner();
+  renderSpin();
+  if (state.desk === 'sides') { $('feed').innerHTML = everySide(99); return; }
   const list = filtered();
   if (!list.length) { $('feed').innerHTML = `<div class="empty">No stories on this filter in the current edition.</div>`; return; }
   // Each story appears once on the page: take() hands out stories in ranked order and remembers them.
@@ -462,7 +504,7 @@ function renderFeed() {
   const subs = take(list, 2, hasImg);
   const rail = take(list, 9);
 
-  let html = `<div class="top">
+  let html = (state.desk === 'front' ? everySide(5) : '') + `<div class="top">
       <article class="hero">
         ${link(lead, imgTag(lead))}
         ${link(lead, `<h1>${esc(lead.title)}</h1>`)}
@@ -515,12 +557,68 @@ function spinBody(c, reading) {
     <div class="spin-actions"><button class="btn primary" data-share="${i}">Share this comparison</button></div>`;
 }
 
+// ---------- Every Side: the same story from across the horseshoe ----------
+
+const SIDE_OF = l => ['far left', 'left', 'lean left'].includes(l) ? 'left' : ['far right', 'right', 'lean right'].includes(l) ? 'right' : 'center';
+const SIDE_LABEL = { left: 'Left-leaning', center: 'Center', right: 'Right-leaning' };
+// A short label for the bar under the menu: the headline without the outlet's tail ("- report", ": What we know").
+const shortHead = c => { const h = c.headline.replace(/\s+[-–—|:]\s+.*$/, '').replace(/^(Scoop|Exclusive|Breaking|Watch|Opinion):\s*/i, ''); return h.length > 54 ? h.slice(0, 52).replace(/\s+\S*$/, '') + '…' : h; };
+// Seven cells, far left to far right; a filled cell means an outlet at that position covered the story.
+const spectrum = c => `<span class="spec" aria-label="Covered by: ${esc([...new Set(c.outlets.map(o => o.lean))].join(', '))}">${LEANS.map(l => {
+  const n = c.outlets.filter(o => o.lean === l).length;
+  return `<i title="${l}: ${n}" style="${n ? `background:${LEAN_COLORS[l]}` : ''}"></i>`;
+}).join('')}</span>`;
+const isShoe = c => c.outlets.some(o => o.lean === 'far left') && c.outlets.some(o => o.lean === 'far right');
+function coverageLine(c) {
+  const by = s => c.outlets.filter(o => SIDE_OF(o.lean) === s).length;
+  const l = by('left'), r = by('right');
+  if (isShoe(c)) return 'Both ends of the horseshoe covered this';
+  if (!l) return 'Not covered by left-leaning outlets we track';
+  if (!r) return 'Not covered by right-leaning outlets we track';
+  return `${l} left-leaning · ${by('center')} center · ${r} right-leaning`;
+}
+
+function sideCols(c) {
+  return `<div class="es-cols">${['left', 'center', 'right'].map(side => {
+    const os = c.outlets.filter(o => SIDE_OF(o.lean) === side);
+    return `<div class="es-col ${side}"><div class="es-col-h">${SIDE_LABEL[side]}</div>${os.length
+      ? os.map(o => `<a class="es-o" href="${esc(reg(o))}" target="_blank" rel="noopener" data-read>${leanPill(o.lean)}<span class="es-src">${esc(o.source)}</span><span class="es-t">${esc(o.title)}</span></a>`).join('')
+      : `<div class="es-none">No coverage from this side</div>`}</div>`;
+  }).join('')}</div>`;
+}
+
+function everySide(limit) {
+  const list = (state.edition.spin || []).slice(0, limit);
+  const intro = `<div class="es-h"><div><div class="es-eyebrow">One story · every side</div>
+      <h2>${state.desk === 'sides' ? 'Every Side' : 'Same story, different spin'}</h2>
+      <p>We match the same story across ${state.edition.sources.filter(s => s.lean).length} outlets, from far left to far right, so you can see how each side frames it, what each one leaves out, and where the two ends of the horseshoe meet.</p></div>
+      ${state.desk === 'front' && (state.edition.spin || []).length > limit ? `<button data-desk="sides">All ${state.edition.spin.length} ›</button>` : ''}</div>`;
+  if (!list.length) return `<section class="es">${intro}<div class="empty">No story has been covered across the spectrum yet in this edition. Check back soon: the site updates every 15 minutes.</div></section>`;
+  const [top, ...rest] = list;
+  const feature = c => `<article class="es-feature">
+      <div class="es-side">${horseshoe(c)}<div class="es-cov">${esc(coverageLine(c))}</div></div>
+      <div class="es-main">
+        <button class="es-title" data-compare="${state.edition.spin.indexOf(c)}">${esc(c.headline)}</button>
+        ${c.spin ? `<div class="spin-note"><b>The spin</b>${esc(c.spin)}</div>` : ''}
+        ${c.horseshoe ? `<div class="shoe-note"><b>Horseshoe</b>${esc(c.horseshoe)}</div>` : ''}
+        ${sideCols(c)}
+        <div class="spin-actions"><button class="btn primary" data-compare="${state.edition.spin.indexOf(c)}">Compare side by side</button><button class="btn" data-share="${state.edition.spin.indexOf(c)}">Share</button></div>
+      </div></article>`;
+  if (state.desk === 'sides') return `<section class="es">${intro}${list.map(feature).join('')}</section>`;
+  return `<section class="es">${intro}${feature(top)}
+    ${rest.length ? `<div class="es-grid">${rest.map(c => `<button class="es-card" data-compare="${state.edition.spin.indexOf(c)}">
+      <span class="es-card-t">${esc(c.headline)}</span>
+      <span class="es-card-m">${spectrum(c)}<span>${c.outlets.length} outlets${isShoe(c) ? ' · <b class="shoe-tag">Horseshoe</b>' : ''}</span></span>
+      <span class="es-card-c">${esc(coverageLine(c))}</span></button>`).join('')}</div>` : ''}
+  </section>`;
+}
+
 // The story to open for a comparison: the version from the reader's own feed if there is one.
 const spinLead = c => c.outlets.find(o => state.edition.articles.some(a => a.link === o.link)) || c.outlets[0];
 
 function renderSpin() {
   const list = state.edition.spin || [];
-  $('spin').hidden = !list.length;
+  $('spin').hidden = !list.length || state.desk === 'front' || state.desk === 'sides';
   $('spin').innerHTML = `
     <div class="spin-head"><div><h2>Every Side</h2><p class="box-sub">Stories we compared across outlets. Open one to see how each side covered it.</p></div></div>
     ${list.map((c, i) => `<button class="spin-item" data-compare="${i}">
@@ -890,8 +988,11 @@ function renderChrome() {
   $('slots').innerHTML = SLOT_HOURS.map(h => `<span class="slot ${h === slotHour ? 'now' : h < slotHour ? 'past' : ''}">${String(h).padStart(2, '0')}:00</span>`).join('');
   $('desks').innerHTML = DESKS.map(d => `<button class="${d.id === state.desk ? 'on' : ''}" data-desk="${d.id}">${d.label}</button>`).join('');
   $('chips').style.display = state.desk === 'scan' ? 'none' : '';
-  $('chips').innerHTML = `<span class="lbl">Trending</span>` + TOPICS.filter(t => e.articles.some(a => a.tags.includes(t))) // no empty topics
-    .map(t => `<button class="chip ${t === state.topic ? 'on' : ''}" data-topic="${t}">${t}</button>`).join('');
+  // The bar under the menu lists the stories we matched across outlets today; each opens its comparison.
+  const spin = e.spin || [];
+  $('chips').innerHTML = spin.length
+    ? `<span class="lbl">Every side of:</span>` + spin.map((c, i) => `<button class="chip" data-compare="${i}" title="${esc(c.headline)}">${esc(shortHead(c))}<span class="chip-n">${c.outlets.length}</span></button>`).join('')
+    : `<span class="lbl">No story was covered across the spectrum yet this edition.</span>`;
   const ok = e.sources.filter(s => s.ok).length;
   $('built').textContent = `${e.name} compiled ${new Date(e.builtAt).toLocaleString()} · ${e.articles.length} stories · ${e.odds.length} markets · ${ok}/${e.sources.length} sources online`;
   $('srcs').innerHTML = e.sources.map(s => `<span class="${s.ok ? '' : 'bad'}">${s.ok ? '●' : '○'} ${esc(s.name)}</span>`).join('');
