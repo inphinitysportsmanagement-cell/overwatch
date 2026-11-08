@@ -282,7 +282,7 @@ async function buildEdition(slot = currentSlot()) {
     spin,
     odds,
   };
-  fs.writeFileSync(CACHE_FILE, JSON.stringify(next));
+  try { fs.writeFileSync(CACHE_FILE, JSON.stringify(next)); } catch {} // read-only on Vercel; the function keeps it in memory
   console.log(`[edition] done: ${next.articles.length} stories, ${spin.length} spin checks (${spin.filter(c => c.ai).length} with AI), ${odds.length} markets, ${sourceStatus.filter(s => s.ok).length}/${SOURCES.length} sources in ${next.buildMs}ms`);
   return next;
 }
@@ -387,7 +387,11 @@ function serve() {
         return res.end(JSON.stringify({ error: err.message }));
       }
     }
-    if (url.pathname === '/edition.json') await ensureEdition().catch(() => {});
+    if (url.pathname === '/edition.json' || url.pathname === '/api/edition') {
+      const e = await ensureEdition().catch(() => edition);
+      res.writeHead(e ? 200 : 503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+      return res.end(JSON.stringify(e || { error: 'Edition not ready yet.' }));
+    }
     const file = path.join(__dirname, 'public', url.pathname === '/' ? 'index.html' : path.normalize(url.pathname));
     if (!file.startsWith(path.join(__dirname, 'public'))) { res.writeHead(403); return res.end(); }
     fs.readFile(file, (err, data) => {
@@ -398,4 +402,4 @@ function serve() {
   }).listen(PORT, () => console.log(`JNMC running → http://localhost:${PORT}`));
 }
 
-module.exports = { analyzeArticle };
+module.exports = { analyzeArticle, buildEdition, currentSlot, CACHE_FILE };

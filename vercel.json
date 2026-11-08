@@ -3,7 +3,8 @@
   "buildCommand": "",
   "outputDirectory": "public",
   "functions": {
-    "api/analyze.js": { "maxDuration": 60 }
+    "api/analyze.js": { "maxDuration": 60 },
+    "api/edition.js": { "maxDuration": 300, "includeFiles": "public/edition.json" }
   },
   "headers": [
     { "source": "/edition.json", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }

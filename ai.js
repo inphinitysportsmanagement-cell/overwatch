@@ -27,9 +27,16 @@ let queue = Promise.resolve();
 let lastFree = 0;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// On Vercel a build has a time limit, so AI calls that can't finish before the deadline are skipped
+// (those Spin Checks still show every outlet's headline, just without the AI note).
+let deadline = Infinity;
+const setAIDeadline = t => { deadline = t; };
+const checkDeadline = (needMs = 30000) => { if (Date.now() + needMs > deadline) throw new Error('out of time for AI this build'); };
+
 function chatJSON(system, user, opts = {}) {
-  if (config().key) return request(system, user, opts);
+  if (config().key) { checkDeadline(); return request(system, user, opts); }
   const run = queue.then(async () => {
+    checkDeadline(Math.max(0, lastFree + 46000 - Date.now()) + 30000);
     await sleep(Math.max(0, lastFree + 46000 - Date.now()));
     try { return await request(system, user, opts); } finally { lastFree = Date.now(); }
   });
@@ -51,11 +58,12 @@ async function request(system, user, { maxTokens = 1500, timeout = 90000 } = {},
       response_format: { type: 'json_object' },
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     }),
-    signal: AbortSignal.timeout(timeout),
+    signal: AbortSignal.timeout(Math.max(1000, Math.min(timeout, deadline - Date.now()))),
   });
   if (!res.ok) {
     const detail = (await res.text()).slice(0, 200);
     if (!c.key && !retried && (res.status === 402 || res.status === 429)) { // limit from an earlier run of the server
+      checkDeadline(76000);
       await sleep(46000);
       return request(system, user, { maxTokens, timeout }, true);
     }
@@ -66,4 +74,4 @@ async function request(system, user, { maxTokens = 1500, timeout = 90000 } = {},
   return JSON.parse(json || text);
 }
 
-module.exports = { chatJSON, aiAvailable, aiCanJudgeSide };
+module.exports = { chatJSON, aiAvailable, aiCanJudgeSide, setAIDeadline };

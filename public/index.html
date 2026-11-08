@@ -1013,22 +1013,22 @@ const shareUrl = () => location.origin + location.pathname + '?ref=card';
 function tickClock() {
   $('today').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   if (!state.edition) return;
-  const ms = state.edition.nextEdition - Date.now();
-  if (ms <= 0) {
-    $('next').innerHTML = `New edition <b>arriving…</b>`;
-    if (Date.now() >= state.retryAt) { state.retryAt = Date.now() + 120000; fetchEdition(); } // poll every 2 min until it lands
-    return;
-  }
-  const h = Math.floor(ms / 36e5), m = Math.floor(ms % 36e5 / 6e4), s = Math.floor(ms % 6e4 / 1e3);
-  $('next').innerHTML = `Next edition in <b>${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s</b>`;
+  // The site rebuilds every 15 minutes; check for a newer build every 5 (and when the tab comes back into view).
+  if (Date.now() >= (state.retryAt || 0)) { state.retryAt = Date.now() + 5 * 60000; if (state.loadedAt) fetchEdition(); else state.loadedAt = Date.now(); }
+  const ago = Math.max(0, Math.round((Date.now() - state.edition.builtAt) / 6e4));
+  $('next').innerHTML = `<b>Live</b> · updated ${ago < 1 ? 'just now' : ago < 60 ? ago + ' min ago' : Math.floor(ago / 60) + 'h ' + (ago % 60) + 'm ago'}`;
 }
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state.edition && Date.now() - state.edition.builtAt > 15 * 60000) fetchEdition(); });
 
 let fetching = false;
 async function fetchEdition() {
   if (fetching) return; fetching = true;
   try {
-    const e = await (await fetch('edition.json?t=' + Date.now(), { cache: 'no-store' })).json();
+    // Live build from the server; the saved copy is the backup if that ever fails.
+    let e = await fetch('api/edition').then(r => (r.ok ? r.json() : null)).catch(() => null);
+    if (!e || e.error) e = await (await fetch('edition.json?t=' + Date.now(), { cache: 'no-store' })).json();
     if (e.error) throw new Error(e.error);
+    if (state.edition && state.edition.builtAt >= e.builtAt) { fetching = false; return; } // nothing new
     state.edition = e;
     renderChrome(); renderFeed(); renderSpin(); renderOdds(); renderTicker();
   } catch (err) {
