@@ -760,7 +760,7 @@ function spinBody(c, reading) {
   return `${horseshoe(c)}
     ${c.outlets.map(o => o.link === reading
       ? `<div class="outlet here"><div class="o-meta">${leanPill(o.lean)}<span class="o-src">${esc(o.source)}</span><span class="here-tag">You're reading this</span></div><div class="o-title">${esc(o.title)}</div></div>`
-      : `<a class="outlet" href="${esc(reg(o))}" target="_blank" rel="noopener"><div class="o-meta">${leanPill(o.lean)}<span class="o-src">${esc(o.source)}</span>${lock(o)}</div><div class="o-title">${esc(o.title)}</div></a>`).join('')}
+      : `<a class="outlet" href="${esc(reg(o))}" target="_blank" rel="noopener" data-read><div class="o-meta">${leanPill(o.lean)}<span class="o-src">${esc(o.source)}</span>${lock(o)}</div><div class="o-title">${esc(o.title)}</div></a>`).join('')}
     ${note}
     ${c.horseshoe ? `<div class="shoe-note"><b>Horseshoe</b>${esc(c.horseshoe)}</div>` : ''}
     ${facts ? `<div class="facts">${facts}</div>` : ''}
@@ -795,7 +795,7 @@ function sideCols(c) {
   return `<div class="es-cols">${['left', 'center', 'right'].map(side => {
     const os = c.outlets.filter(o => SIDE_OF(o.lean) === side);
     return `<div class="es-col ${side}"><div class="es-col-h">${SIDE_LABEL[side]}</div>${os.length
-      ? os.map(o => `<a class="es-o" href="${esc(reg(o))}" target="_blank" rel="noopener">${leanPill(o.lean)}<span class="es-src">${esc(o.source)}</span>${lock(o)}<span class="es-t">${esc(o.title)}</span></a>`).join('')
+      ? os.map(o => `<a class="es-o" href="${esc(reg(o))}" target="_blank" rel="noopener" data-read>${leanPill(o.lean)}<span class="es-src">${esc(o.source)}</span>${lock(o)}<span class="es-t">${esc(o.title)}</span></a>`).join('')
       : `<div class="es-none">No coverage from this side</div>`}</div>`;
   }).join('')}</div>`;
 }
@@ -1138,7 +1138,7 @@ function freeVersions(a) {
   const c = sameStory(a);
   const free = c ? c.outlets.filter(o => o.link !== a.link && !o.paywall) : [];
   if (!free.length) return '';
-  return `<div class="free"><b>${a.paywall ? 'Read it free from:' : 'Also covered by:'}</b>${free.map(o => `<a href="${esc(reg(o))}" target="_blank" rel="noopener">${leanPill(o.lean)} ${esc(o.source)}: ${esc(o.title)} ↗</a>`).join('')}</div>`;
+  return `<div class="free"><b>${a.paywall ? 'Read it free from:' : 'Also covered by:'}</b>${free.map(o => `<a href="${esc(reg(o))}" target="_blank" rel="noopener" data-read>${leanPill(o.lean)} ${esc(o.source)}: ${esc(o.title)} ↗</a>`).join('')}</div>`;
 }
 
 const frameable = name => !!state.edition.sources.find(s => s.name === name)?.frameable;
@@ -1174,6 +1174,7 @@ function openReader(href) {
             ${freeVersions(a)}
           </div></section>
     </div>`;
+  document.querySelectorAll('#reader .v-side, #reader .v-article').forEach(el => (el.scrollTop = 0));
   document.body.classList.add('reading');
   track('read-in-site', a.source);
   loadOverview(a);
