@@ -406,6 +406,29 @@ async function overviewStory({ title = '', summary = '', source = '', others = [
   return result;
 }
 
+// ---------- "Ask about this story" chat in the article viewer ----------
+// Answers only from the headlines and feed summaries we have for the story (never fetched article text).
+const ASK_SYSTEM = `You answer a reader's questions about one news story, in a chat inside a news site.
+You only know the headlines and short summaries given below, from one or more outlets. Rules:
+- Answer only from that text. If it doesn't say, reply that the headlines and summaries don't cover it and suggest reading the full article. Never guess or add outside facts.
+- Be brief: 1-3 sentences, plain words. You may name which outlet said what.
+- Stay neutral. Don't take sides or say who is right. You may describe how outlets frame it differently.
+- Never write out or recreate the article's text.
+Return JSON: {"answer": "..."}`;
+async function askStory({ question = '', history = [], title = '', summary = '', source = '', others = [] }) {
+  question = String(question).trim().slice(0, 400);
+  if (!question) throw new Error('Type a question first.');
+  if (!title) throw new Error('No story given.');
+  const story = [`Outlet: ${String(source).slice(0, 60)}\nHeadline: ${String(title).slice(0, 300)}\nSummary: ${String(summary).slice(0, 400)}`,
+    ...others.slice(0, 8).map(o => `Outlet: ${String(o.source).slice(0, 60)} (${o.lean || 'unrated'})\nHeadline: ${String(o.title).slice(0, 300)}`)].join('\n\n');
+  const past = (Array.isArray(history) ? history : []).slice(-6)
+    .map(t => `${t.role === 'ai' ? 'You' : 'Reader'}: ${String(t.text).slice(0, 400)}`).join('\n');
+  const out = await chatJSON(ASK_SYSTEM, `STORY\n${story}\n\n${past ? `CHAT SO FAR\n${past}\n\n` : ''}READER'S QUESTION\n${question}`, { maxTokens: 300, timeout: 60000 });
+  const answer = typeof out?.answer === 'string' ? out.answer.trim().slice(0, 700) : '';
+  if (!answer) throw new Error('The AI gave no answer. Try again.');
+  return { answer };
+}
+
 async function analyzeArticle({ paragraphs = [], source = '', lean = '' }) {
   const paras = paragraphs.filter(p => typeof p === 'string').slice(0, 80);
   let budget = 24000;
@@ -455,6 +478,16 @@ function serve() {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ available: aiAvailable() }));
     }
+    if (url.pathname === '/api/ask' && req.method === 'POST') {
+      try {
+        const result = await askStory(await readBody(req));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message }));
+      }
+    }
     if (url.pathname === '/api/overview' && req.method === 'POST') {
       try {
         const result = await overviewStory(await readBody(req));
@@ -490,4 +523,4 @@ function serve() {
   }).listen(PORT, () => console.log(`JNMC running → http://localhost:${PORT}`));
 }
 
-module.exports = { analyzeArticle, overviewStory, buildEdition, gather, currentSlot, CACHE_FILE };
+module.exports = { analyzeArticle, overviewStory, askStory, buildEdition, gather, currentSlot, CACHE_FILE };

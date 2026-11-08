@@ -464,7 +464,8 @@
   .es-t { font-weight: 600; font-size: 15.5px; }
   .es-card-t { font-weight: 700; font-size: 17px; }
 
-  .es-feature { grid-template-columns: minmax(0, 1fr) 230px; }
+  .es-feature { grid-template-columns: minmax(0, 1fr) 300px; }
+  .es-side .shoe { max-width: 300px; margin: 0 auto; }
   @media (max-width: 760px) {
     .es-feature { grid-template-columns: 1fr; }
     .edition .slots, .ticker { display: none; } /* keep the first screen for the news */
@@ -548,6 +549,27 @@
     .rb-t { display: none; }
     .reader-bar .sp { flex: 1; }
   }
+
+  /* chat */
+  .chat { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .chat-h { font-family: var(--serif); font-weight: 700; font-size: 16px; }
+  .chat-log { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .msg { max-width: 92%; padding: 8px 11px; font-size: 14px; line-height: 1.45; }
+  .msg.me { align-self: flex-end; background: var(--text); color: var(--bg); }
+  .msg.ai { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); font-family: var(--serif); font-size: 15px; }
+  .chat-form { display: flex; gap: 6px; }
+  .chat-form input { flex: 1; min-width: 0; padding: 9px 10px; font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--text); }
+  .chat-form input:focus { outline: 2px solid var(--text); outline-offset: -1px; }
+
+  /* horseshoe chart */
+  .shoe svg text { text-transform: none; }
+  .shoe .sh-n { font: 700 10.5px var(--sans); fill: #fff; }
+  .shoe .sh-l { font: 600 10px var(--sans); fill: var(--dim); letter-spacing: .02em; }
+  .shoe .sh-l.on { fill: var(--text); }
+  .shoe .sh-big { font: 700 28px var(--serif); fill: var(--text); }
+  .shoe .sh-of { font: 600 13px var(--sans); fill: var(--muted); }
+  .shoe .sh-sub { font: 600 9.5px var(--sans); fill: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+  .shoe .sh-meet { font: 700 9.5px var(--sans); fill: #7c3aed; letter-spacing: .06em; text-transform: uppercase; }
 
   /* photos */
   .has-th { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 12px; align-items: start; }
@@ -1109,27 +1131,41 @@ function refreshCheck(a) {
 
 // The 7 lean positions laid out on a horseshoe: center at the bottom, far left and far right
 // curling up toward each other at the top.
-function shoePoint(i, cx = 150, cy = 92, r = 74) {
-  const deg = 232 - i * (284 / 6), rad = deg * Math.PI / 180;
-  return [cx + r * Math.cos(rad), cy - r * Math.sin(rad) * -1];
+// The horseshoe: the 7 lean positions on a U-shaped track, far left and far right at the two tips (close
+// together, as in horseshoe theory). A filled marker = outlets at that position covered the story.
+const SHOE = { cx: 160, cy: 92, r: 80 };
+function shoePoint(i, r = SHOE.r) {
+  const deg = 150 + i * 40, rad = deg * Math.PI / 180; // 150° (upper left) → 270° (bottom) → 390° (upper right)
+  return [SHOE.cx + r * Math.cos(rad), SHOE.cy - r * Math.sin(rad)];
 }
+let shoeId = 0;
 function horseshoe(c) {
+  const id = 'sg' + (++shoeId);
   const counts = Object.fromEntries(LEANS.map(l => [l, c.outlets.filter(o => o.lean === l).length]));
   const covered = LEANS.filter(l => counts[l]).length;
-  const curve = Array.from({ length: 61 }, (_, k) => shoePoint(k / 10).map(n => n.toFixed(1)).join(',')).join(' ');
-  const dots = LEANS.map((l, i) => {
+  const track = Array.from({ length: 61 }, (_, k) => shoePoint(k / 10).map(n => n.toFixed(1)).join(',')).join(' ');
+  const NAMES = ['Far left', 'Left', 'Lean left', 'Center', 'Lean right', 'Right', 'Far right'];
+  const ends = counts['far left'] && counts['far right'];
+  const [ax, ay] = shoePoint(0), [bx, by] = shoePoint(6);
+  const marks = LEANS.map((l, i) => {
     const [x, y] = shoePoint(i), n = counts[l];
-    const lx = i < 3 ? x - 9 : i > 3 ? x + 9 : x, anchor = i < 3 ? 'end' : i > 3 ? 'start' : 'middle', ly = i === 3 ? y + 19 : y + 3;
-    return `<g><title>${l}: ${n} outlet${n === 1 ? '' : 's'}</title>
-      <circle cx="${x}" cy="${y}" r="${n ? 6 + Math.min(n, 3) : 4.5}" fill="${n ? LEAN_COLORS[l] : 'var(--panel)'}" stroke="${n ? 'none' : 'var(--dim)'}" stroke-width="1.2"/>
-      ${n > 1 ? `<text x="${x}" y="${y + 3.2}" text-anchor="middle" style="fill:#fff;font-size:9px">${n}</text>` : ''}
-      <text x="${lx}" y="${ly}" text-anchor="${anchor}" style="fill:${n ? 'var(--text)' : 'var(--dim)'}">${l}</text></g>`;
+    const [lx, ly] = shoePoint(i, SHOE.r + 22);
+    const anchor = i < 3 ? 'end' : i > 3 ? 'start' : 'middle';
+    return `<g><title>${NAMES[i]}: ${n} outlet${n === 1 ? '' : 's'}</title>
+      ${n ? `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="10" fill="${LEAN_COLORS[l]}" stroke="var(--panel)" stroke-width="2.5"/>
+        <text x="${x.toFixed(1)}" y="${(y + 3.6).toFixed(1)}" text-anchor="middle" class="sh-n">${n}</text>`
+      : `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="var(--panel)" stroke="var(--dim)" stroke-width="1.5"/>`}
+      <text x="${lx.toFixed(1)}" y="${(ly + 3.5).toFixed(1)}" text-anchor="${anchor}" class="sh-l${n ? ' on' : ''}">${NAMES[i]}</text></g>`;
   }).join('');
-  return `<div class="shoe"><svg viewBox="0 0 300 196" role="img" aria-label="Coverage across the political horseshoe: ${covered} of 7 positions">
-    <polyline points="${curve}" fill="none" stroke="var(--line)" stroke-width="10" stroke-linecap="round"/>
-    ${dots}
-    <text class="mid" x="150" y="96" text-anchor="middle">${covered} of 7 positions</text>
-    <text class="mid" x="150" y="110" text-anchor="middle">covered this story</text>
+  return `<div class="shoe"><svg viewBox="0 0 320 212" role="img" aria-label="Coverage across the political spectrum: ${covered} of 7 positions">
+    <defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${SHOE.cx - SHOE.r}" y1="0" x2="${SHOE.cx + SHOE.r}" y2="0">
+      <stop offset="0" stop-color="#1d4ed8"/><stop offset=".5" stop-color="#9ca3af"/><stop offset="1" stop-color="#c42a1c"/></linearGradient></defs>
+    <polyline points="${track}" fill="none" stroke="url(#${id})" stroke-width="5" stroke-linecap="round" opacity=".45"/>
+    ${ends ? `<line x1="${ax.toFixed(1)}" y1="${ay.toFixed(1)}" x2="${bx.toFixed(1)}" y2="${by.toFixed(1)}" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="3 4"/>
+      <text x="${SHOE.cx}" y="${(ay - 8).toFixed(1)}" text-anchor="middle" class="sh-meet">Ends meet</text>` : ''}
+    ${marks}
+    <text x="${SHOE.cx}" y="${SHOE.cy + 14}" text-anchor="middle" class="sh-big">${covered}<tspan class="sh-of"> of 7</tspan></text>
+    <text x="${SHOE.cx}" y="${SHOE.cy + 32}" text-anchor="middle" class="sh-sub">positions covered</text>
   </svg></div>`;
 }
 
@@ -1161,6 +1197,11 @@ function openReader(href) {
         <div class="v-h"><span class="ai-badge">AI overview</span></div>
         <div id="ovBody" data-for="${esc(a.link)}">${overviewHtml(a)}</div>
         <p class="v-note">Written by AI from the headline and summary${c ? 's of every outlet below' : ''}, not the full article. Check the original.</p>
+        <div class="chat">
+          <div class="v-h chat-h">Ask about this story</div>
+          <div class="chat-log" id="chatLog">${chatHtml(a)}</div>
+          <form class="chat-form" data-chat="${esc(a.link)}"><input name="q" autocomplete="off" maxlength="400" placeholder="e.g. Who said what? How do the outlets differ?"><button class="btn primary">Ask</button></form>
+        </div>
         ${c ? `<div class="v-h v-cmp-h">How every side covered it</div>${spinBody(c, a.link)}` : ''}
       </section>
       <section class="v-article"><div class="reader-card">
@@ -1180,6 +1221,48 @@ function openReader(href) {
   loadOverview(a);
   return true;
 }
+// Chat about the open story: answers come from the same headlines and summaries as the overview.
+const chats = new Map();
+function chatHtml(a) {
+  const log = chats.get(a.link) || [];
+  return log.map(t => `<div class="msg ${t.role}">${t.role === 'ai' && t.pending ? '<span class="spinner"></span>' : esc(t.text)}</div>`).join('');
+}
+async function askAbout(a, question) {
+  const log = chats.get(a.link) || [];
+  chats.set(a.link, log);
+  const history = log.filter(t => !t.pending && !t.error).map(t => ({ role: t.role, text: t.text }));
+  log.push({ role: 'me', text: question }, { role: 'ai', pending: true });
+  paintChat(a);
+  const c = sameStory(a);
+  const others = c ? c.outlets.filter(o => o.link !== a.link).map(o => ({ source: o.source, lean: o.lean, title: o.title })) : [];
+  const last = log[log.length - 1];
+  try {
+    const r = await fetch('api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, history, title: a.title, summary: a.summary, source: a.source, others }) });
+    const d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.error || 'The AI is busy.');
+    Object.assign(last, { pending: false, text: d.answer });
+  } catch (err) {
+    Object.assign(last, { pending: false, error: true, text: /fetch|network/i.test(err.message) ? "Couldn't reach the AI. Try again." : err.message });
+  }
+  paintChat(a);
+}
+function paintChat(a) {
+  const el = $('chatLog');
+  if (!el || el.closest('.v-side').querySelector('#ovBody')?.dataset.for !== a.link) return;
+  el.innerHTML = chatHtml(a);
+  el.lastElementChild?.scrollIntoView({ block: 'nearest' });
+}
+document.addEventListener('submit', e => {
+  const f = e.target.closest('[data-chat]');
+  if (!f) return;
+  e.preventDefault();
+  const a = byLink.get(f.dataset.chat), q = f.q.value.trim();
+  if (!a || !q) return;
+  f.q.value = '';
+  askAbout(a, q);
+});
+
 function overviewHtml(a) {
   const o = overviews.get(a.link);
   if (!o || o.loading) return `<div class="v-loading"><span class="spinner"></span>Reading the headlines…</div>`;

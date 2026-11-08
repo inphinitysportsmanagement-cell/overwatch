@@ -5,6 +5,7 @@
   "functions": {
     "api/analyze.js": { "maxDuration": 300 },
     "api/overview.js": { "maxDuration": 120 },
+    "api/ask.js": { "maxDuration": 120 },
     "api/edition.js": { "maxDuration": 300, "includeFiles": "public/edition.json" }
   },
   "headers": [
