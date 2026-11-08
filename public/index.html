@@ -463,6 +463,25 @@
   .es-t { font-weight: 600; font-size: 15.5px; }
   .es-card-t { font-weight: 700; font-size: 17px; }
 
+  /* photos */
+  .has-th { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 12px; align-items: start; }
+  .has-th > a:first-child { order: 2; }
+  .th { display: block; width: 92px; aspect-ratio: 4/3; overflow: hidden; background: var(--panel-2); }
+  .th img { width: 100%; height: 100%; object-fit: cover; }
+  .row.has-th { grid-template-columns: minmax(0, 1fr) 120px; }
+  .rail-item.has-th { grid-template-columns: minmax(0, 1fr) 64px; gap: 10px; }
+  @media (min-width: 761px) { .top { grid-template-columns: 310px minmax(0, 1fr); } }
+  .rail-item .th { width: 64px; aspect-ratio: 1; }
+  .row .th { width: 120px; aspect-ratio: 16/10; }
+  .es-photo { display: block; width: 100%; padding: 0; margin-bottom: 12px; }
+  .es-photo img { width: 100%; aspect-ratio: 16/8; object-fit: cover; background: var(--panel-2); }
+  .es-card-img { display: block; margin-bottom: 8px; }
+  .es-card-img img { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: var(--panel-2); }
+  .es-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 20px; }
+  @media (max-width: 1100px) { .es-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 760px) { .es-grid { grid-template-columns: 1fr; } .row.has-th { grid-template-columns: minmax(0, 1fr) 96px; } .row .th { width: 96px; } }
+  .es-card { border-bottom: 0; padding-top: 16px; }
+
   footer { border-top: 3px double var(--text); background: var(--panel-2); color: var(--muted); }
   footer .brand { color: var(--text); }
   footer .wm b { font-family: 'Playfair Display', var(--serif); font-weight: 900; font-size: 28px; letter-spacing: 0; }
@@ -568,6 +587,8 @@ let relayout;
 function imgFailed(img) {
   const a = byLink.get(img.closest('a')?.getAttribute('href'));
   const top = img.closest('.hero');
+  const th = img.closest('.th');
+  if (th) { th.closest('.has-th')?.classList.remove('has-th'); th.closest('a')?.remove(); } // drop the empty thumbnail slot
   img.remove();
   if (!a) return;
   a.image = null;
@@ -610,7 +631,7 @@ function renderFeed() {
         ${lead.summary ? `<p>${esc(lead.summary)}</p>` : ''}${kicker(lead)}
         ${subs.length ? `<div class="subs">${subs.map(card).join('')}</div>` : ''}
       </article>
-      <div class="rail"><h2 class="rail-h">Top headlines</h2>${rail.map(a => `<div class="rail-item">${link(a, `<h4>${esc(a.title)}</h4>`)}${kicker(a)}</div>`).join('')}</div>
+      <div class="rail"><h2 class="rail-h">Top headlines</h2>${rail.map(a => `<div class="rail-item${a.image ? ' has-th' : ''}">${a.image ? link(a, `<span class="th">${imgTag(a)}</span>`) : ''}<div>${link(a, `<h4>${esc(a.title)}</h4>`)}${kicker(a)}</div></div>`).join('')}</div>
     </div>`;
 
   const section = (title, pool, desk, cards, more) => {
@@ -630,7 +651,7 @@ function renderFeed() {
   $('feed').innerHTML = html;
 }
 const card = a => `<article class="card">${link(a, imgTag(a))}${link(a, `<h3>${esc(a.title)}</h3>`)}${kicker(a)}</article>`;
-const row = a => `<div class="row">${link(a, `<h4>${esc(a.title)}</h4>`)}${kicker(a)}</div>`;
+const row = a => `<div class="row${a.image ? ' has-th' : ''}">${a.image ? link(a, `<span class="th">${imgTag(a)}</span>`) : ''}<div>${link(a, `<h4>${esc(a.title)}</h4>`)}${kicker(a)}</div></div>`;
 
 // Spin Check: the same story from several outlets across the horseshoe. A comparison lives inside the
 // story it belongs to (the reader's Bias check panel); the side column only lists which stories have one.
@@ -667,6 +688,8 @@ const spectrum = c => `<span class="spec" aria-label="Covered by: ${esc([...new 
   const n = c.outlets.filter(o => o.lean === l).length;
   return `<i title="${l}: ${n}" style="${n ? `background:${LEAN_COLORS[l]}` : ''}"></i>`;
 }).join('')}</span>`;
+// The comparison's photo: the lead outlet's, else any outlet's.
+const storyImg = c => c.outlets.find(o => o.image && o.title === c.headline)?.image || c.outlets.find(o => o.image)?.image;
 const isShoe = c => c.outlets.some(o => o.lean === 'far left') && c.outlets.some(o => o.lean === 'far right');
 function coverageLine(c) {
   const by = s => c.outlets.filter(o => SIDE_OF(o.lean) === s).length;
@@ -697,6 +720,7 @@ function everySide(limit) {
   const feature = c => `<article class="es-feature">
       <div class="es-side">${horseshoe(c)}<div class="es-cov">${esc(coverageLine(c))}</div></div>
       <div class="es-main">
+        ${storyImg(c) ? `<button class="es-photo" data-compare="${state.edition.spin.indexOf(c)}"><img src="${esc(storyImg(c))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></button>` : ''}
         <button class="es-title" data-compare="${state.edition.spin.indexOf(c)}">${esc(c.headline)}</button>
         ${c.spin ? `<div class="spin-note"><b>The spin</b>${esc(c.spin)}</div>` : ''}
         ${c.horseshoe ? `<div class="shoe-note"><b>Horseshoe</b>${esc(c.horseshoe)}</div>` : ''}
@@ -706,6 +730,7 @@ function everySide(limit) {
   if (state.desk === 'sides') return `<section class="es">${intro}${list.map(feature).join('')}</section>`;
   return `<section class="es">${intro}${feature(top)}
     ${rest.length ? `<div class="es-grid">${rest.map(c => `<button class="es-card" data-compare="${state.edition.spin.indexOf(c)}">
+      ${storyImg(c) ? `<span class="es-card-img"><img src="${esc(storyImg(c))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></span>` : ''}
       <span class="es-card-t">${esc(c.headline)}</span>
       <span class="es-card-m">${spectrum(c)}<span>${c.outlets.length} outlets${isShoe(c) ? ' · <b class="shoe-tag">Horseshoe</b>' : ''}</span></span>
       <span class="es-card-c">${esc(coverageLine(c))}</span></button>`).join('')}</div>` : ''}

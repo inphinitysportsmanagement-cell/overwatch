@@ -229,6 +229,41 @@ let edition = null;
 let building = null;
 
 // Feeds sometimes point at placeholder or missing pictures; check each one so the page never leads with a blank.
+// Many feeds (JNS, Jerusalem Post, FDD…) carry no photo. Every article page names a share/preview image
+// (og:image, what social sites show for a link), so use that. Only the top of each page is read.
+async function addPreviewImages(articles, max = 140) {
+  const todo = articles.filter(a => !a.image && !a.link.includes('t.me/')).slice(0, max);
+  const meta = html => {
+    for (const re of [/<meta[^>]+(?:property|name)=["'](?:og:image|og:image:url|twitter:image)["'][^>]*content=["']([^"']+)["']/i,
+                      /<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["'](?:og:image|og:image:url|twitter:image)["']/i]) {
+      const m = html.match(re);
+      if (m) return decode(m[1]).trim();
+    }
+    return null;
+  };
+  let found = 0;
+  for (let i = 0; i < todo.length; i += 20) {
+    await Promise.all(todo.slice(i, i + 20).map(async a => {
+      try {
+        const res = await fetch(a.link, { headers: { 'User-Agent': UA, Accept: 'text/html' }, signal: AbortSignal.timeout(7000) });
+        if (!res.ok || !res.body) return;
+        // Read only until </head> (or 700 KB); the image tag is always in the head.
+        const reader = res.body.getReader(), dec = new TextDecoder();
+        let html = '';
+        while (html.length < 700000 && !/<\/head>/i.test(html)) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          html += dec.decode(value, { stream: true });
+        }
+        reader.cancel().catch(() => {});
+        const img = meta(html);
+        if (img && /^https?:\/\//.test(img) && !/(logo|placeholder|favicon)[^/]*$/i.test(img.split('?')[0])) { a.image = img; found++; }
+      } catch {}
+    }));
+  }
+  console.log(`[edition] preview images: ${found} added for ${todo.length} stories without one`);
+}
+
 async function dropDeadImages(articles) {
   const urls = [...new Set(articles.map(a => a.image).filter(Boolean))];
   const dead = new Set();
@@ -275,6 +310,7 @@ async function buildEdition(slot = currentSlot()) {
   const started = Date.now();
   console.log(`[edition] building ${EDITION_NAMES[slot.getHours()]} for ${slot.toDateString()}…`);
   const { articles, sourceStatus, now } = await gather();
+  await addPreviewImages(articles);
   await dropDeadImages(articles);
 
   const odds = await fetchOdds();
