@@ -8,7 +8,7 @@ const STOP = new Set(('the a an and or but of to in on at for with from by as is
   'after before over under into amid about says said say new news live update updates report reports reported how why what who will would could ' +
   'not more than first last also just video watch latest day week year years people his her their they them our we you your out up off ' +
   'against while during between amid near some many most other than then there here when where which per back down ahead ' +
-  'tens dozens hundreds thousands millions thousand hundred dozen million killed opinion analysis comment explainer') .split(' '));
+  'tens dozens hundreds thousands millions thousand hundred dozen million opinion analysis comment explainer') .split(' '));
 const SHORT_KEEP = new Set(['idf', 'us', 'un', 'gop', 'nato', 'irgc', 'uae', 'eu']);
 
 const LEFT = new Set(['far left', 'left', 'lean left']);
@@ -22,8 +22,22 @@ const stem = w => w.length > 5 && w.endsWith('ing') ? w.slice(0, -3)
   : w.length > 4 && w.endsWith('ed') ? w.slice(0, -2)
   : w.length > 4 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w;
 
+// Outlets on different sides word the same event differently ("Israeli forces" vs "IDF", "airstrike" vs
+// "strike", "truce" vs "ceasefire"). Map those to one word before comparing.
+const SAME_MEANING = [
+  [/\b(israel defen[cs]e forces|israeli (military|army|forces|troops|soldiers|defen[cs]e forces))\b/g, 'idf'],
+  [/\b(air ?strikes?|bombings?|bombards?|bombarded|shelling)\b/g, 'strike'],
+  [/\b(kills?|killed|killing|dead|deaths?|dies|died)\b/g, 'kill'],
+  [/\b(cease-?fire|truce)\b/g, 'ceasefire'],
+  [/\b(hostages?|captives?|abductees?)\b/g, 'hostage'],
+  [/\bu\.s\.?\b/g, 'us'],
+  [/\b(prime minister|pm) (benjamin )?netanyahu\b/g, 'netanyahu'],
+  [/\b(palestinian authority|\bpa\b)\b/g, 'palestinianauthority'],
+];
+const unify = t => SAME_MEANING.reduce((x, [re, w]) => x.replace(re, w), t);
+
 function keywords(text) {
-  return new Set(text.toLowerCase().replace(/[’']s\b/g, '').replace(PHRASES, m => m.replace(' ', '')).split(/[^a-z0-9]+/)
+  return new Set(unify(text.toLowerCase()).replace(/[’']s\b/g, '').replace(PHRASES, m => m.replace(' ', '')).split(/[^a-z0-9]+/)
     .filter(w => (w.length > 3 || SHORT_KEEP.has(w)) && !STOP.has(w))
     .map(stem));
 }
@@ -96,6 +110,10 @@ function findClusters(articles, now) {
       clusters.splice(j, 1);
     }
   }
+  // Stories covered by both left- and right-leaning outlets first (that's the comparison readers come for),
+  // then left+center or right+center, then by how many outlets covered it.
+  const balance = c => { const s = new Set(c.members.map(m => LEAN_SIDE(m.lean))); return (s.has('left') && s.has('right') ? 2 : 0) + (s.size >= 2 ? 1 : 0); };
+  clusters.sort((x, y) => balance(y) - balance(x) || y.members.length - x.members.length);
   return clusters.slice(0, MAX_STORIES);
 }
 

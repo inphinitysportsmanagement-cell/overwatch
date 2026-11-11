@@ -49,6 +49,13 @@ const SOURCES = [
   // The rest of the horseshoe, for Spin Check only
   { name: 'Mondoweiss', desk: 'compare', lean: 'far left', rated: 'Media Bias/Fact Check', url: 'https://mondoweiss.net/feed/' },
   { name: 'Electronic Intifada', desk: 'compare', lean: 'far left', rated: 'Media Bias/Fact Check', url: 'https://electronicintifada.net/rss.xml' },
+  { name: '+972 Magazine', desk: 'compare', lean: 'left', rated: 'Media Bias/Fact Check', url: 'https://www.972mag.com/feed/' },
+  { name: 'Haaretz', desk: 'compare', lean: 'lean left', rated: 'Media Bias/Fact Check', paywall: true, url: 'https://www.haaretz.com/srv/haaretz-latest-headlines' },
+  { name: 'The Forward', desk: 'compare', lean: 'lean left', rated: 'Media Bias/Fact Check', url: 'https://forward.com/feed/' },
+  { name: 'CBS News', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://www.cbsnews.com/latest/rss/world' },
+  { name: 'NBC News', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://feeds.nbcnews.com/nbcnews/public/world' },
+  { name: 'Washington Post', desk: 'compare', lean: 'lean left', rated: 'AllSides', paywall: true, url: 'https://feeds.washingtonpost.com/rss/world' },
+  { name: 'Los Angeles Times', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://www.latimes.com/world-nation/rss2.0.xml' },
   { name: 'Drop Site News', desk: 'compare', lean: 'left', rated: 'Media Bias/Fact Check', url: 'https://www.dropsitenews.com/feed' },
   { name: 'Common Dreams', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://www.commondreams.org/feeds/feed.rss' },
   { name: 'The Intercept', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://theintercept.com/feed/?rss' },
