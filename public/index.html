@@ -77,6 +77,7 @@
   .slot.past { color: var(--muted); }
   .slot.now { color: var(--text); font-weight: 700; }
   .next b { color: var(--text); font-weight: 600; }
+  .next .spinner { display: inline-block; width: 11px; height: 11px; vertical-align: -1px; margin-right: 4px; }
 
   /* layout */
   main { display: grid; grid-template-columns: minmax(0, 1fr) 336px; gap: 32px; padding: 4px 0 60px; }
@@ -1463,6 +1464,7 @@ function tickClock() {
   if (!state.edition) return;
   // The site rebuilds every 15 minutes; check for a newer build every 5 (and when the tab comes back into view).
   if (Date.now() >= (state.retryAt || 0)) { state.retryAt = Date.now() + 5 * 60000; if (state.loadedAt) fetchEdition(); else state.loadedAt = Date.now(); }
+  if (state.waitingLive && Date.now() - state.edition.builtAt > 60 * 6e4) { $('next').innerHTML = `<span class="spinner"></span> Getting the latest news…`; return; }
   const ago = Math.max(0, Math.round((Date.now() - state.edition.builtAt) / 6e4));
   $('next').innerHTML = `<b>Live</b> · updated ${ago < 1 ? 'just now' : ago < 60 ? ago + ' min ago' : Math.floor(ago / 60) + 'h ' + (ago % 60) + 'm ago'}`;
 }
@@ -1476,12 +1478,13 @@ async function fetchEdition() {
     // which can take up to a minute right after the site is updated.
     if (!state.edition) {
       const saved = await fetch('edition.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).catch(() => null);
-      if (saved && !saved.error) { state.edition = saved; renderChrome(); renderFeed(); renderSpin(); renderOdds(); renderTicker(); }
+      if (saved && !saved.error) { state.edition = saved; state.waitingLive = true; renderChrome(); renderFeed(); renderSpin(); renderOdds(); renderTicker(); tickClock(); }
     }
     let e = await fetch('api/edition').then(r => (r.ok ? r.json() : null)).catch(() => null);
     if (!e || e.error) e = await (await fetch('edition.json?t=' + Date.now(), { cache: 'no-store' })).json();
     if (e.error) throw new Error(e.error);
-    if (state.edition && state.edition.builtAt >= e.builtAt) { fetching = false; return; } // nothing new
+    state.waitingLive = false;
+    if (state.edition && state.edition.builtAt >= e.builtAt) { fetching = false; tickClock(); return; } // nothing new
     state.edition = e;
     if (Date.now() - e.builtAt > 15 * 60000) state.retryAt = Date.now() + 20000; // got an older cached copy; a fresh one is being built
     renderChrome(); renderFeed(); renderSpin(); renderOdds(); renderTicker();

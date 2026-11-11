@@ -8,7 +8,7 @@ const { buildEdition, currentSlot, CACHE_FILE } = require('../server');
 const { setAIDeadline } = require('../ai');
 
 const REFRESH_MIN = 15;
-const AI_BUDGET_MS = 170_000; // the function may run 300s; feeds + checks need ~60s of that
+const AI_BUDGET_MS = 35_000; // AI notes are a bonus: never let them hold up fresh news (the free AI can stall)
 
 let latest = null;   // kept between requests while this instance stays warm
 let building = null;
@@ -27,7 +27,8 @@ async function fresh() {
 module.exports = async (req, res) => {
   try {
     const e = await fresh();
-    res.setHeader('Cache-Control', `public, max-age=0, s-maxage=${REFRESH_MIN * 60}, stale-while-revalidate=86400`);
+    // After 15 min the next visitor still gets this copy instantly (for up to a week) while a new one builds.
+    res.setHeader('Cache-Control', `public, max-age=0, s-maxage=${REFRESH_MIN * 60}, stale-while-revalidate=604800`);
     res.status(200).json(e);
   } catch (err) {
     console.error('[edition] build failed', err);

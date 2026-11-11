@@ -3,12 +3,35 @@
   "buildCommand": "",
   "outputDirectory": "public",
   "functions": {
-    "api/analyze.js": { "maxDuration": 300 },
-    "api/overview.js": { "maxDuration": 120 },
-    "api/ask.js": { "maxDuration": 120 },
-    "api/edition.js": { "maxDuration": 300, "includeFiles": "public/edition.json" }
+    "api/analyze.js": {
+      "maxDuration": 300
+    },
+    "api/overview.js": {
+      "maxDuration": 120
+    },
+    "api/ask.js": {
+      "maxDuration": 120
+    },
+    "api/edition.js": {
+      "maxDuration": 300,
+      "includeFiles": "public/edition.json"
+    }
   },
   "headers": [
-    { "source": "/edition.json", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+    {
+      "source": "/edition.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/edition",
+      "schedule": "0 4 * * *"
+    }
   ]
 }
