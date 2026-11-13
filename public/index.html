@@ -1225,6 +1225,61 @@ function openReader(href) {
   loadOverview(a);
   return true;
 }
+// ---------- AI, asked from the visitor's browser ----------
+// The free AI (Pollinations, no key) limits how often each internet address can ask. Asking from the
+// browser gives every visitor their own allowance; the site's server (api/overview, api/ask) is the
+// fallback. Only the story's headlines/summaries (and the reader's question) are sent.
+// Keep these prompts in step with OVERVIEW_SYSTEM / ASK_SYSTEM in server.js.
+const OVERVIEW_PROMPT = `You write a short, neutral news overview for a reader who is about to open an article.
+Use ONLY the headlines and summaries given. Do not add facts, numbers, names or quotes that are not in them. Write in your own words; never copy a sentence.
+Every point must be directly supported by the given text. Do not guess causes, consequences or background. Two solid points beat four with guesses.
+Return JSON: {"points": ["2 to 4 short bullet points (max 22 words each) on what happened"], "differs": "if several outlets are given: one sentence on how their headlines frame it differently, naming outlets. Otherwise an empty string."}`;
+const ASK_PROMPT = `You answer a reader's questions about one news story, in a chat inside a news site.
+You only know the headlines and short summaries given below, from one or more outlets. Rules:
+- Answer only from that text. If it doesn't say, reply that the headlines and summaries don't cover it and suggest reading the full article. Never guess or add outside facts.
+- Be brief: 1-3 sentences, plain words. You may name which outlet said what.
+- Stay neutral. Don't take sides or say who is right. You may describe how outlets frame it differently.
+- Never write out or recreate the article's text.
+Return JSON: {"answer": "..."}`;
+const storyText = (a, others) => [`Outlet: ${a.source}\nHeadline: ${a.title}\nSummary: ${(a.summary || '').slice(0, 400)}`,
+  ...others.slice(0, 8).map(o => `Outlet: ${o.source} (${o.lean || 'unrated'})\nHeadline: ${o.title}`)].join('\n\n');
+const withTimeout = (ms) => { const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; };
+async function aiDirect(system, user) {
+  const r = await fetch('https://text.pollinations.ai/openai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: withTimeout(25000),
+    body: JSON.stringify({ model: 'openai', temperature: 0.2, reasoning_effort: 'low', response_format: { type: 'json_object' },
+      messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
+  if (!r.ok) throw new Error('busy');
+  const text = (await r.json()).choices?.[0]?.message?.content || '';
+  return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1) || text);
+}
+async function aiServer(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: withTimeout(40000) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || d.error) throw new Error(d.error || 'The AI is busy right now.');
+  return d;
+}
+function cleanPoints(out) {
+  let pts = out?.points ?? out?.bullets ?? out?.overview ?? [];
+  if (typeof pts === 'string') pts = pts.split(/\n+/);
+  return (Array.isArray(pts) ? pts : []).map(x => (typeof x === 'string' ? x : x?.text || x?.point || '')).map(x => x.replace(/^[-•*\d.\s]+/, '').trim()).filter(Boolean).slice(0, 4);
+}
+async function getOverview(a, others) {
+  try {
+    const out = await aiDirect(OVERVIEW_PROMPT, storyText(a, others));
+    const points = cleanPoints(out);
+    if (points.length) return { points, differs: others.length && typeof out.differs === 'string' ? out.differs.trim() : '' };
+  } catch {}
+  return aiServer('api/overview', { title: a.title, summary: a.summary, source: a.source, others });
+}
+async function getAnswer(a, others, question, history) {
+  const past = history.slice(-6).map(t => `${t.role === 'ai' ? 'You' : 'Reader'}: ${t.text}`).join('\n');
+  try {
+    const out = await aiDirect(ASK_PROMPT, `STORY\n${storyText(a, others)}\n\n${past ? `CHAT SO FAR\n${past}\n\n` : ''}READER'S QUESTION\n${question}`);
+    if (typeof out?.answer === 'string' && out.answer.trim()) return { answer: out.answer.trim() };
+  } catch {}
+  return aiServer('api/ask', { question, history, title: a.title, summary: a.summary, source: a.source, others });
+}
+
 // Chat about the open story: answers come from the same headlines and summaries as the overview.
 const chats = new Map();
 function chatHtml(a) {
@@ -1241,13 +1296,10 @@ async function askAbout(a, question) {
   const others = c ? c.outlets.filter(o => o.link !== a.link).map(o => ({ source: o.source, lean: o.lean, title: o.title })) : [];
   const last = log[log.length - 1];
   try {
-    const r = await fetch('api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, history, title: a.title, summary: a.summary, source: a.source, others }) });
-    const d = await r.json();
-    if (!r.ok || d.error) throw new Error(d.error || 'The AI is busy.');
+    const d = await getAnswer(a, others, question, history);
     Object.assign(last, { pending: false, text: d.answer });
   } catch (err) {
-    Object.assign(last, { pending: false, error: true, text: /fetch|network/i.test(err.message) ? "Couldn't reach the AI. Try again." : err.message });
+    Object.assign(last, { pending: false, error: true, text: /fetch|network|abort/i.test(err.message) ? 'The free AI is busy right now. Try again in a moment.' : err.message });
   }
   paintChat(a);
 }
@@ -1279,13 +1331,10 @@ async function loadOverview(a, retry = false) {
   const c = sameStory(a);
   const others = c ? c.outlets.filter(o => o.link !== a.link).map(o => ({ source: o.source, lean: o.lean, title: o.title })) : [];
   try {
-    const r = await fetch('api/overview', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: a.title, summary: a.summary, source: a.source, others }) });
-    const d = await r.json();
-    if (!r.ok || d.error) throw new Error(d.error || 'The AI is busy.');
+    const d = await getOverview(a, others);
     overviews.set(a.link, { data: d });
   } catch (err) {
-    overviews.set(a.link, { error: /fetch|network/i.test(err.message) ? "Couldn't reach the AI." : err.message });
+    overviews.set(a.link, { error: /fetch|network|abort/i.test(err.message) ? 'The free AI is busy right now.' : err.message });
   }
   paintOverview(a);
 }

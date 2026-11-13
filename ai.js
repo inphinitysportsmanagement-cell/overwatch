@@ -33,8 +33,12 @@ let deadline = Infinity;
 const setAIDeadline = t => { deadline = t; };
 const checkDeadline = (needMs = 30000) => { if (Date.now() + needMs > deadline) throw new Error('out of time for AI this build'); };
 
+// On Vercel each request may land on a different server, and the page now asks the AI from the
+// visitor's browser first, so the server is only a fallback: no 46-second queue there.
+const SERVERLESS = !!process.env.VERCEL;
+
 function chatJSON(system, user, opts = {}) {
-  if (config().key) { checkDeadline(); return request(system, user, opts); }
+  if (config().key || SERVERLESS) { checkDeadline(); return request(system, user, opts); }
   const run = queue.then(async () => {
     checkDeadline(Math.max(0, lastFree + 46000 - Date.now()) + 30000);
     await sleep(Math.max(0, lastFree + 46000 - Date.now()));
@@ -63,8 +67,9 @@ async function request(system, user, { maxTokens = 1500, timeout = 90000 } = {},
   if (!res.ok) {
     const detail = (await res.text()).slice(0, 200);
     if (!c.key && !retried && (res.status === 402 || res.status === 429)) { // limit from an earlier run of the server
-      checkDeadline(76000);
-      await sleep(46000);
+      const wait = SERVERLESS ? 5000 : 46000;
+      checkDeadline(wait + 30000);
+      await sleep(wait);
       return request(system, user, { maxTokens, timeout }, true);
     }
     throw new Error(res.status === 429 ? 'The free AI limit was hit. Try again in a minute.' : `AI request failed (HTTP ${res.status}): ${detail}`);
