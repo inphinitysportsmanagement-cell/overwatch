@@ -618,7 +618,6 @@
     <a class="nameplate" href="./" aria-label="JNMC home">JNMC</a>
     <div class="mast-side mast-r">Jewish Network for<br>Media Correctness</div>
   </div>
-  <div class="mast-motto">One story · Every side</div>
 </header>
 <div class="navrow"><div class="wrap navwrap"><nav class="desks" id="desks" aria-label="Sections"></nav>
   <div class="theme-sw" role="group" aria-label="Colour mode"><button data-theme-set="light" title="Light">☀</button><button data-theme-set="grey" title="Grey">◐</button><button data-theme-set="dark" title="Dark">☾</button></div></div></div>
@@ -839,7 +838,7 @@ function sideCols(c) {
 
 function everySide(limit) {
   const list = (state.edition.spin || []).slice(0, limit);
-  const intro = `<div class="es-h"><div><div class="es-eyebrow">One story · every side</div>
+  const intro = `<div class="es-h"><div>
       <h2>${state.desk === 'sides' ? 'Every Side' : 'Same story, different spin'}</h2>
       ${state.desk === 'sides' ? `<p>We match the same story across ${state.edition.sources.filter(s => s.lean).length} outlets, from far left to far right, so you can see how each side frames it, what each one leaves out, and where the two ends of the horseshoe meet.</p>` : ''}</div>
       ${state.desk === 'front' && (state.edition.spin || []).length > limit ? `<button data-desk="sides">All ${state.edition.spin.length} ›</button>` : ''}</div>`;
