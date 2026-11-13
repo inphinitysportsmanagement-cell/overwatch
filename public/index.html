@@ -6,6 +6,9 @@
 <script>try { document.documentElement.dataset.theme = localStorage.getItem('ow.theme') || 'light'; } catch { document.documentElement.dataset.theme = 'light'; }</script>
 <title>JNMC · Jewish Network for Media Correctness</title>
 <link rel="icon" href="logo.svg" type="image/svg+xml">
+<!-- Visitor counts: Vercel Web Analytics (free on Hobby, no cookies). See vercel.com → jnmc → Analytics. -->
+<script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <!-- Fonts load without blocking the page: on a slow connection the news shows at once in system fonts. -->
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -673,7 +676,7 @@ const DESKS = [
 const ODDS_DESKS = [{ id: 'mideast', label: 'Middle East' }];
 const SLOT_HOURS = [6, 12, 18];
 // Visitor metrics (GoatCounter: free, no cookies). Set to your GoatCounter code, e.g. 'overwatch-news'.
-const GOATCOUNTER = 'overwatch-news';
+const GOATCOUNTER = ''; // GoatCounter was never set up; visitors are counted by Vercel Web Analytics instead
 const LEANS = ['far left', 'left', 'lean left', 'center', 'lean right', 'right', 'far right'];
 const LEAN_COLORS = { 'far left': '#1e2f8a', left: '#1d4ed8', 'lean left': '#5b8def', center: '#6b7280', 'lean right': '#e06055', right: '#c42a1c', 'far right': '#7a1610' };
 
