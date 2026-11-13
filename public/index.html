@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>try { document.documentElement.dataset.theme = localStorage.getItem('ow.theme') || 'light'; } catch { document.documentElement.dataset.theme = 'light'; }</script>
 <title>JNMC · Jewish Network for Media Correctness</title>
-<link rel="icon" href="emblem.svg" type="image/svg+xml">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <!-- Fonts load without blocking the page: on a slow connection the news shows at once in system fonts. -->
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,7 +33,6 @@
   .topbar { background: var(--bar); color: #fff; position: sticky; top: 0; z-index: 30; }
   .bar { display: flex; align-items: stretch; gap: 22px; height: 56px; }
   .brand { display: flex; align-items: center; gap: 10px; flex: none; }
-  .emblem { width: 34px; height: 38px; display: block; }
   .wm { display: flex; flex-direction: column; line-height: 1; }
   .wm b { font-family: 'Black Ops One', var(--sans); font-weight: 400; font-size: 25px; letter-spacing: .06em; }
   .wm small { font-size: 9.5px; font-weight: 600; color: #9aa3ae; letter-spacing: .04em; text-transform: uppercase; margin-top: 3px; }
@@ -399,7 +398,6 @@
   .mast-l #today { font-weight: 700; color: var(--text); }
   .mast-r { text-align: right; font-style: italic; }
   .nameplate { display: flex; align-items: center; gap: 12px; font-family: 'Playfair Display', var(--serif); font-weight: 900; font-size: 64px; line-height: 1; letter-spacing: .01em; }
-  .nameplate .emblem { width: 40px; height: 46px; }
   .mast-motto { text-align: center; font-family: var(--serif); font-style: italic; font-size: 13px; color: var(--muted); padding: 0 0 10px; }
   .navrow { background: #fff; border-top: 1px solid var(--text); border-bottom: 3px double var(--text); position: sticky; top: 0; z-index: 30; }
   .navrow nav.desks { justify-content: center; height: 44px; }
@@ -412,7 +410,6 @@
     .mast-side.mast-r { display: none; }
     .mast-l { order: 2; flex-direction: row; gap: 8px; padding-bottom: 4px; }
     .nameplate { font-size: 46px; }
-    .nameplate .emblem { width: 30px; height: 34px; }
     .navrow nav.desks { justify-content: flex-start; }
   }
 
@@ -507,7 +504,6 @@
   html:not([data-theme="light"]) .btn.primary, html:not([data-theme="light"]) .toast { color: var(--bg); }
   html:not([data-theme="light"]) .shoe-note { background: #1f2a44; color: #b9cdfa; }
   html:not([data-theme="light"]) .out .bar { background: var(--panel-2); border-right-color: var(--muted); }
-  html:not([data-theme="light"]) .nameplate .emblem { filter: drop-shadow(0 0 1px rgba(255,255,255,.4)); }
   html:not([data-theme="light"]) img { opacity: .92; }
 
   /* article viewer: centered, AI overview left, article right */
@@ -561,7 +557,8 @@
   .msg { font-size: 14.5px; line-height: 1.55; }
   .msg.me { align-self: flex-end; max-width: 85%; background: var(--line); color: var(--text); padding: 9px 14px; border-radius: 18px; white-space: pre-wrap; }
   .msg.ai { display: flex; gap: 10px; align-items: flex-start; }
-  .msg.ai .av { width: 26px; height: 26px; flex: none; border-radius: 50%; padding: 4px; background: var(--panel); border: 1px solid var(--line); }
+  .msg.ai .av { width: 28px; height: 28px; flex: none; border-radius: 50%; background: var(--text); color: var(--bg); display: flex; align-items: center; justify-content: center;
+    text-align: center; font: 900 8px/1 'Playfair Display', var(--serif); letter-spacing: .02em; }
   .msg.ai .ai-text { padding-top: 3px; white-space: pre-wrap; }
   .msg.ai.err .ai-text { color: var(--muted); }
   .dots { display: inline-flex; gap: 4px; padding: 6px 0; }
@@ -578,66 +575,6 @@
   .chat-form .send { width: 32px; height: 32px; flex: none; border-radius: 50%; background: var(--text); color: var(--bg); font-size: 17px; font-weight: 700; line-height: 1; }
   .chat-form .send:hover { opacity: .85; }
   .chat-foot { font-size: 11px; color: var(--dim); text-align: center; margin: 8px 0 0; }
-
-  /* headline breakdown */
-  .hb-h1 { line-height: 1.3 !important; }
-  .hb-m { --c: 255, 214, 10; background: linear-gradient(transparent 12%, rgba(var(--c), .55) 12%, rgba(var(--c), .55) 88%, transparent 88%) no-repeat 0 0 / 0% 100%;
-    color: inherit; padding: 0 .08em; border-radius: 3px; cursor: pointer; animation: hb-sweep .55s ease-out forwards; animation-delay: calc(.25s + var(--d, 0s)); }
-  @keyframes hb-sweep { to { background-size: 100% 100%; } }
-  .hb-m:hover, .hb-m.on { outline: 2px solid rgba(var(--c), 1); outline-offset: 1px; }
-  .hb-m.hb-left { --c: 59, 130, 246; } .hb-m.hb-right { --c: 239, 68, 68; } .hb-m.hb-loaded { --c: 245, 158, 11; }
-  .hb-m.hb-tone { --c: 168, 85, 247; } .hb-m.hb-heat { --c: 249, 115, 22; } .hb-m.hb-hedge { --c: 20, 184, 166; }
-  .hb-m.hb-shout { --c: 236, 72, 153; } .hb-m.hb-quoted { --c: 148, 163, 184; }
-  .hb { margin: 6px 0 22px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel-2); font-family: var(--sans); }
-  .hb-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 12px; }
-  .hb-title { font-weight: 800; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
-  .hb-sub { font-size: 13px; color: var(--muted); }
-  .hb-cards { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 10px; }
-  @media (max-width: 640px) { .hb-cards { grid-template-columns: 1fr; } }
-  .hb-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; gap: 10px; align-items: center; min-width: 0; }
-  .hb-card b { display: block; font-size: 15px; } .hb-card small { display: block; font-size: 12px; color: var(--muted); line-height: 1.35; }
-  .hb-big { font-size: 30px; line-height: 1; animation: hb-pop .5s cubic-bezier(.3,1.6,.5,1) .3s both; }
-  @keyframes hb-pop { from { transform: scale(.3); opacity: 0; } }
-  .hb-meter { width: 100%; }
-  .hb-track { position: relative; height: 10px; border-radius: 99px; background: linear-gradient(90deg, #2563eb, #cbd5e1 50%, #dc2626); }
-  .hb-needle { position: absolute; top: -5px; left: 50%; width: 4px; height: 20px; margin-left: -2px; border-radius: 2px; background: var(--text);
-    box-shadow: 0 0 0 2px var(--panel); animation: hb-needle 1s cubic-bezier(.3,1.5,.5,1) .3s forwards; }
-  @keyframes hb-needle { to { left: var(--x); } }
-  .hb-scale { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--dim); margin-top: 5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
-  .hb-meter-l { font-size: 14px; font-weight: 700; margin-top: 2px; }
-  .hb-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-  .hb-chip { --c: 148, 163, 184; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px;
-    background: rgba(var(--c), .16); border: 1px solid rgba(var(--c), .5); }
-  .hb-chip.hb-left { --c: 59, 130, 246; } .hb-chip.hb-right { --c: 239, 68, 68; } .hb-chip.hb-loaded { --c: 245, 158, 11; } .hb-chip.hb-tone { --c: 168, 85, 247; }
-  .hb-chip.hb-heat { --c: 249, 115, 22; } .hb-chip.hb-hedge { --c: 20, 184, 166; } .hb-chip.hb-shout { --c: 236, 72, 153; }
-  .hb-explain { margin-top: 12px; min-height: 8px; }
-  .hb-hint { font-size: 13px; color: var(--dim); }
-  .hb-x { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; animation: hb-in .25s ease-out; }
-  @keyframes hb-in { from { opacity: 0; transform: translateY(-4px); } }
-  .hb-x-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .hb-x q { font-family: var(--serif); font-weight: 700; font-size: 16px; }
-  .hb-x p { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: var(--text); }
-  .hb-x .hb-x-n { color: var(--muted); }
-  .hb-rewrite { margin-top: 12px; }
-  .hb-btn { font-size: 14px; font-weight: 700; padding: 9px 16px; border-radius: 99px; background: var(--text); color: var(--bg); }
-  .hb-btn:hover { opacity: .85; }
-  .hb-neutral { margin-top: 10px; background: var(--panel); border: 1px dashed var(--muted); border-radius: 12px; padding: 12px 14px; }
-  .hb-neutral small { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
-  .hb-neutral-t { font-family: var(--serif); font-size: 20px; line-height: 1.35; margin-top: 4px; }
-  .hb-old { color: #dc2626; text-decoration-thickness: 2px; animation: hb-in .3s ease-out; }
-  .hb-new { text-decoration: none; background: rgba(34, 197, 94, .25); border-radius: 3px; padding: 0 .1em; margin-left: .25em; animation: hb-pop .4s ease-out .2s both; }
-  .hb-face { margin-top: 16px; }
-  .hb-face-h { font-weight: 800; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
-  .hb-face-h small { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--muted); margin-left: 6px; }
-  .hb-row { padding: 10px 0; border-top: 1px solid var(--line); }
-  .hb-row.here { background: var(--panel); margin: 0 -10px; padding: 10px; border-radius: 10px; }
-  .hb-row-m { display: flex; align-items: center; gap: 7px; font-size: 12.5px; flex-wrap: wrap; }
-  .hb-row-heat { font-size: 15px; }
-  .hb-badge { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; padding: 2px 7px; border-radius: 99px; }
-  .hb-badge.hot { background: #fee2e2; color: #b91c1c; } .hb-badge.cool { background: #dbeafe; color: #1d4ed8; }
-  .hb-row-t { font-family: var(--serif); font-size: 16px; line-height: 1.45; margin-top: 4px; }
-  .hb-row-t .hb-m { cursor: help; }
-  @media (prefers-reduced-motion: reduce) { .hb-m { animation: none; background-size: 100% 100%; } .hb-needle { animation: none; left: var(--x); } .hb-big, .hb-new, .hb-x { animation: none; } }
 
   /* horseshoe chart */
   .shoe svg text { text-transform: none; }
@@ -678,7 +615,7 @@
 <header class="masthead">
   <div class="wrap mast">
     <div class="mast-side mast-l"><span id="today"></span><span class="mast-ed" id="mastEd"></span></div>
-    <a class="nameplate" href="./" aria-label="JNMC home"><img class="emblem" src="emblem.svg" alt=""><span>JNMC</span></a>
+    <a class="nameplate" href="./" aria-label="JNMC home">JNMC</a>
     <div class="mast-side mast-r">Jewish Network for<br>Media Correctness</div>
   </div>
   <div class="mast-motto">One story · Every side</div>
@@ -712,7 +649,7 @@
 
 <footer>
   <div class="wrap">
-    <div class="brand"><img class="emblem" src="emblem.svg" alt=""><span class="wm"><b>JNMC</b><small>Jewish Network for Media Correctness</small></span></div>
+    <div class="brand"><span class="wm"><b>JNMC</b><small>Jewish Network for Media Correctness</small></span></div>
     <div id="built"></div>
     <div class="srcs" id="srcs"></div>
     <p>Outlet ratings come from AllSides, or Media Bias/Fact Check where AllSides has none. Every Side notes are written by AI from headlines and summaries only. Always read the originals.</p>
@@ -723,7 +660,6 @@
 <div class="reader" id="reader" role="dialog" aria-modal="true" aria-label="Article reader"></div>
 
 <script src="scanner.js"></script>
-<script src="breakdown.js"></script>
 <script>
 const has = (...tags) => a => tags.some(t => a.tags.includes(t));
 const DESKS = [
@@ -1304,8 +1240,7 @@ function openReader(href) {
       <section class="v-article"><div class="reader-card">
             ${a.image ? `<img src="${esc(a.image)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
             <div class="kicker">${leanPill(a.lean)}<span class="src">${esc(a.source)}</span>${a.published ? `<span class="t">${ago(a.published)}</span>` : ''}${lock(a)}</div>
-            <h1 class="hb-h1">${esc(a.title)}</h1>
-            ${HeadlineBreakdown.render(a, c ? c.outlets.filter(o => o.link !== a.link) : [])}
+            <h1>${esc(a.title)}</h1>
             ${a.summary ? `<p>${esc(a.summary)}</p>` : ''}
             <div class="v-actions"><a class="go" href="${esc(a.link)}" target="_blank" rel="noopener">Read the full article at ${esc(a.source)} ↗</a>
             ${inSite ? `<button class="btn" data-frame="${esc(a.embed || a.link)}">Show their page here</button>` : ''}</div>
@@ -1313,7 +1248,6 @@ function openReader(href) {
             ${freeVersions(a)}
           </div></section>
     </div>`;
-  HeadlineBreakdown.attach($('reader'), a, $('reader').querySelector('.v-article h1'));
   document.querySelectorAll('#reader .v-side, #reader .v-article').forEach(el => (el.scrollTop = 0));
   document.body.classList.add('reading');
   track('read-in-site', a.source);
@@ -1341,7 +1275,7 @@ function chatHtml(a) {
   if (!log.length) return `<div class="suggest">${SUGGESTED.map(q => `<button type="button" data-suggest="${esc(q)}">${esc(q)}</button>`).join('')}</div>`;
   return log.map(t => t.role === 'me'
     ? `<div class="msg me">${esc(t.text)}</div>`
-    : `<div class="msg ai${t.error ? ' err' : ''}"><img class="av" src="emblem.svg" alt=""><div class="ai-text">${t.pending ? '<span class="dots"><i></i><i></i><i></i></span>' : esc(t.text)}</div></div>`).join('');
+    : `<div class="msg ai${t.error ? ' err' : ''}"><span class="av" aria-hidden="true">JN<br>MC</span><div class="ai-text">${t.pending ? '<span class="dots"><i></i><i></i><i></i></span>' : esc(t.text)}</div></div>`).join('');
 }
 async function askAbout(a, question) {
   const log = chats.get(a.link) || [];
@@ -1477,9 +1411,7 @@ async function drawCard(c) {
   ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
   ctx.textBaseline = 'top';
 
-  const emblem = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = 'emblem.svg'; });
-  const tx = emblem ? P + 58 : P;
-  if (emblem) ctx.drawImage(emblem, P, P - 12, 44, 50);
+  const tx = P;
   ctx.font = '900 34px Inter'; ctx.fillStyle = '#111a2c';
   ctx.fillText('JNMC', tx, P - 4); const w = ctx.measureText('JNMC   ').width;
   ctx.font = '700 24px Inter'; ctx.fillStyle = '#c8102e';
