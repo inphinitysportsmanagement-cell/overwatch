@@ -239,7 +239,9 @@ let building = null;
 // Many feeds (JNS, Jerusalem Post, FDD…) carry no photo. Every article page names a share/preview image
 // (og:image, what social sites show for a link), so use that. Only the top of each page is read.
 async function addPreviewImages(articles, max = 140) {
-  const todo = articles.filter(a => !a.image && !a.link.includes('t.me/')).slice(0, max);
+  // Also replace feed thumbnails that are obviously tiny (e.g. ".../resize/120x...", "?w=150", "-150x100.jpg").
+  const tiny = u => /\/resize\/\d{2,3}x|[?&](w|width)=\d{2,3}\b|-\d{2,3}x\d{2,3}\.(jpe?g|png|webp)/i.test(u || '');
+  const todo = articles.filter(a => (!a.image || tiny(a.image)) && !a.link.includes('t.me/')).slice(0, max);
   const meta = html => {
     for (const re of [/<meta[^>]+(?:property|name)=["'](?:og:image|og:image:url|twitter:image)["'][^>]*content=["']([^"']+)["']/i,
                       /<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["'](?:og:image|og:image:url|twitter:image)["']/i]) {

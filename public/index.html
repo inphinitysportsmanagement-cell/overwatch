@@ -711,7 +711,7 @@ function kicker(a) {
   const dot = a.lean ? `<i class="ldot" style="background:${LEAN_COLORS[a.lean]}" title="${esc(a.source)} is rated ${esc(a.lean)}"></i>` : '';
   return `<div class="kicker">${kind ? `<span class="kind">${kind}</span>` : ''}<span class="src">${dot}${esc(a.source)}</span>${lock(a)}<span class="t">${ago(a.published)}</span>${compareFlag(a)}</div>`;
 }
-const imgTag = a => a.image ? `<img src="${esc(a.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="imgFailed(this)">` : '';
+const imgTag = a => a.image ? `<img src="${esc(a.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onload="if (this.naturalWidth && this.naturalWidth < 300) imgFailed(this)" onerror="imgFailed(this)">` : '';
 // A dead image link drops that picture; if it was a top-of-page slot, re-lay out so a story with a working picture leads.
 let relayout;
 function imgFailed(img) {
@@ -819,7 +819,18 @@ const spectrum = c => `<span class="spec" aria-label="Covered by: ${esc([...new 
   return `<i title="${l}: ${n}" style="${n ? `background:${LEAN_COLORS[l]}` : ''}"></i>`;
 }).join('')}</span>`;
 // The comparison's photo: the lead outlet's, else any outlet's.
-const storyImg = c => c.outlets.find(o => o.image && o.title === c.headline)?.image || c.outlets.find(o => o.image)?.image;
+// A story's photos, the lead outlet's first; if one fails or is a tiny placeholder, the next is tried.
+const storyImgs = c => [...new Set([...c.outlets.filter(o => o.title === c.headline), ...c.outlets].map(o => o.image).filter(Boolean))];
+const storyImg = c => storyImgs(c)[0];
+// <img> that moves on to the next photo when one won't load or is a placeholder (some feeds hand out 1-pixel images).
+const chainImg = (urls, eager) => urls.length
+  ? `<img src="${esc(urls[0])}" data-alts="${esc(urls.slice(1).join(' '))}" alt="" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} referrerpolicy="no-referrer" onload="imgCheck(this)" onerror="imgNext(this)">` : '';
+function imgCheck(img) { if (img.naturalWidth && img.naturalWidth < 300) imgNext(img); }
+function imgNext(img) {
+  const alts = (img.dataset.alts || '').split(' ').filter(Boolean);
+  if (alts.length) { img.dataset.alts = alts.slice(1).join(' '); img.src = alts[0]; return; }
+  (img.closest('.es-photo, .es-card-img') || img).remove(); // nothing usable: drop the empty box
+}
 const isShoe = c => c.outlets.some(o => o.lean === 'far left') && c.outlets.some(o => o.lean === 'far right');
 function coverageLine(c) {
   const by = s => c.outlets.filter(o => SIDE_OF(o.lean) === s).length;
@@ -849,7 +860,7 @@ function everySide(limit) {
   const [top, ...rest] = list;
   const feature = c => `<article class="es-feature">
       <div class="es-main">
-        ${storyImg(c) ? `<button class="es-photo" data-compare="${state.edition.spin.indexOf(c)}"><img src="${esc(storyImg(c))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></button>` : ''}
+        ${storyImg(c) ? `<button class="es-photo" data-compare="${state.edition.spin.indexOf(c)}">${chainImg(storyImgs(c), true)}</button>` : ''}
         <button class="es-title" data-compare="${state.edition.spin.indexOf(c)}">${esc(c.headline)}</button>
         ${c.spin ? `<div class="spin-note"><b>The spin</b>${esc(c.spin)}</div>` : ''}
         ${c.horseshoe ? `<div class="shoe-note"><b>Horseshoe</b>${esc(c.horseshoe)}</div>` : ''}
@@ -860,7 +871,7 @@ function everySide(limit) {
   if (state.desk === 'sides') return `<section class="es">${intro}${list.map(feature).join('')}</section>`;
   return `<section class="es">${intro}${feature(top)}
     ${rest.length ? `<div class="es-grid">${rest.map(c => `<button class="es-card" data-compare="${state.edition.spin.indexOf(c)}">
-      ${storyImg(c) ? `<span class="es-card-img"><img src="${esc(storyImg(c))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></span>` : ''}
+      ${storyImg(c) ? `<span class="es-card-img">${chainImg(storyImgs(c))}</span>` : ''}
       <span class="es-card-t">${esc(c.headline)}</span>
       <span class="es-card-m">${spectrum(c)}<span>${c.outlets.length} outlets${isShoe(c) ? ' · <b class="shoe-tag">Horseshoe</b>' : ''}</span></span>
       <span class="es-card-c">${esc(coverageLine(c))}</span></button>`).join('')}</div>` : ''}
