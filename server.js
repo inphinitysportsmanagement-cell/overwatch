@@ -7,7 +7,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { buildSpinChecks } = require('./spin');
-const { chatJSON, aiAvailable, aiCanJudgeSide } = require('./ai');
+const { chatJSON, aiAvailable, aiCanJudgeSide, setAIDeadline } = require('./ai');
 
 const PORT = process.env.PORT || 7811;
 const EDITION_HOURS = [6, 12, 18];
@@ -342,7 +342,10 @@ async function buildEdition(slot = currentSlot()) {
 async function ensureEdition(force = false) {
   const slot = +currentSlot();
   if (!force && edition && edition.slot >= slot) return edition;
-  if (!building) building = buildEdition(new Date(slot)).then(e => (edition = e)).finally(() => (building = null));
+  if (!building) {
+    setAIDeadline(Date.now() + 35_000); // same as on Vercel: AI notes never hold up the news
+    building = buildEdition(new Date(slot)).then(e => (edition = e)).finally(() => (building = null));
+  }
   return building;
 }
 
@@ -515,7 +518,7 @@ function serve() {
         return res.end(JSON.stringify({ error: err.message }));
       }
     }
-    if (url.pathname === '/edition.json' || url.pathname === '/api/edition') {
+    if (url.pathname === '/api/edition') {
       const e = await ensureEdition().catch(() => edition);
       res.writeHead(e ? 200 : 503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
       return res.end(JSON.stringify(e || { error: 'Edition not ready yet.' }));
