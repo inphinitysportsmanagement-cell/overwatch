@@ -30,7 +30,6 @@ const SOURCES = [
   { name: 'Jewish Insider', desk: 'israel', lean: 'center', rated: 'AllSides', url: 'https://www.jewishinsider.com/feed/' },
   { name: 'Ynet News', desk: 'israel', lean: 'lean left', rated: 'Media Bias/Fact Check', url: 'https://www.ynetnews.com/Integration/StoryRss3089.xml' },
   // US politics (right of center)
-  { name: 'The Daily Wire', desk: 'politics', lean: 'right', rated: 'AllSides', url: 'https://www.dailywire.com/feeds/rss.xml' },
   { name: 'Washington Free Beacon', desk: 'politics', lean: 'right', rated: 'AllSides', url: 'https://freebeacon.com/feed/' },
   { name: 'National Review', desk: 'politics', lean: 'lean right', rated: 'AllSides', url: 'https://www.nationalreview.com/feed/' },
   { name: 'Washington Examiner', desk: 'politics', lean: 'lean right', rated: 'AllSides', url: 'https://www.washingtonexaminer.com/feed' },
@@ -71,6 +70,23 @@ const SOURCES = [
   { name: 'The Blaze', desk: 'compare', lean: 'right', rated: 'AllSides', url: 'https://www.theblaze.com/feeds/feed.rss' },
   { name: 'Breitbart', desk: 'compare', lean: 'far right', rated: 'Media Bias/Fact Check', url: 'https://www.breitbart.com/feed/' },
   { name: 'American Greatness', desk: 'compare', lean: 'right', rated: 'AllSides', url: 'https://amgreatness.com/feed/' },
+  // Added Nov 24: more outlets, kept even (23 left-leaning, 23 right-leaning).
+  { name: 'The Federalist', desk: 'compare', lean: 'right', rated: 'AllSides', url: 'https://thefederalist.com/feed/' },
+  { name: 'Washington Times', desk: 'compare', lean: 'lean right', rated: 'AllSides', url: 'https://www.washingtontimes.com/rss/headlines/news/world/' },
+  { name: 'The Dispatch', desk: 'compare', lean: 'lean right', rated: 'AllSides', url: 'https://thedispatch.com/feed/' },
+  { name: 'The Daily Signal', desk: 'compare', lean: 'right', rated: 'AllSides', url: 'https://www.dailysignal.com/feed/' },
+  { name: 'Hot Air', desk: 'compare', lean: 'right', rated: 'AllSides', url: 'https://hotair.com/feed' },
+  { name: 'PJ Media', desk: 'compare', lean: 'right', rated: 'AllSides', url: 'https://pjmedia.com/feed' },
+  { name: 'RedState', desk: 'compare', lean: 'right', rated: 'AllSides', url: 'https://redstate.com/feed' },
+  { name: 'The Algemeiner', desk: 'compare', lean: 'lean right', rated: 'Media Bias/Fact Check', url: 'https://www.algemeiner.com/feed/' },
+  { name: 'Commentary', desk: 'compare', lean: 'right', rated: 'Media Bias/Fact Check', url: 'https://www.commentary.org/feed/' },
+  { name: 'Reason', desk: 'compare', lean: 'lean right', rated: 'Media Bias/Fact Check', url: 'https://reason.com/feed/' },
+  { name: 'Vox', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://www.vox.com/rss/index.xml' },
+  { name: 'Mother Jones', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://www.motherjones.com/feed/' },
+  { name: 'The Nation', desk: 'compare', lean: 'left', rated: 'AllSides', url: 'https://www.thenation.com/feed/?post_type=article' },
+  { name: 'JTA', desk: 'compare', lean: 'lean left', rated: 'Media Bias/Fact Check', url: 'https://www.jta.org/feed' },
+  { name: 'The Hill', desk: 'compare', lean: 'center', rated: 'AllSides', url: 'https://thehill.com/policy/international/feed/' },
+  { name: 'NewsNation', desk: 'compare', lean: 'center', rated: 'AllSides', url: 'https://www.newsnationnow.com/feed/' },
 ];
 
 // Topics that push a story up the front page. Weight = how much it matters to this reader.
@@ -157,13 +173,15 @@ async function fetchTelegram(src) {
 async function fetchFeed(src) {
   if (src.telegram) return fetchTelegram(src);
   const xml = await (await get(src.url)).text();
-  const items = xml.match(/<item[\s>][\s\S]*?<\/item>/gi) || [];
+  // RSS <item>s, or Atom <entry>s (Vox and a few others publish Atom).
+  const items = xml.match(/<item[\s>][\s\S]*?<\/item>/gi) || xml.match(/<entry[\s>][\s\S]*?<\/entry>/gi) || [];
   return items.slice(0, 25).map(item => {
     const title = strip(tag(item, 'title'));
-    const summary = strip(tag(item, 'description') || '').slice(0, 280);
-    const link = strip(tag(item, 'link') || tag(item, 'guid') || '');
-    const date = new Date(strip(tag(item, 'pubDate') || tag(item, 'dc:date') || '') || Date.now());
-    return { title, summary, link, image: findImage(item), source: src.name, desk: src.desk, lean: src.lean || null, ...(src.paywall && { paywall: true }), published: isNaN(date) ? Date.now() : +date };
+    const summary = strip(tag(item, 'description') || tag(item, 'summary') || tag(item, 'content') || '').slice(0, 280);
+    const atomLink = (item.match(/<link[^>]*rel="alternate"[^>]*href="([^"]+)"/i) || item.match(/<link[^>]*href="([^"]+)"/i) || [])[1];
+    const link = strip(tag(item, 'link') || atomLink || tag(item, 'guid') || '');
+    const date = new Date(strip(tag(item, 'pubDate') || tag(item, 'dc:date') || tag(item, 'published') || tag(item, 'updated') || '') || Date.now());
+    return { title, summary, link, image: findImage(item), source: src.name, desk: src.desk, lean: src.lean || null, ...(src.paywall && { paywall: true }), published: isNaN(date) ? Date.now() : Math.min(+date, Date.now()) }; // some outlets stamp stories a little in the future
   }).filter(a => a.title && a.link.startsWith('http'));
 }
 

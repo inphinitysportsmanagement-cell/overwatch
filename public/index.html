@@ -292,6 +292,8 @@
   /* per-article flag + check */
   .flag { font-size: 10.5px; font-weight: 800; padding: 2px 6px; color: #fff; text-transform: uppercase; letter-spacing: .03em; }
   .flag.b-left { background: var(--left); } .flag.b-right { background: var(--right); } .flag.b-loaded { background: var(--amber); }
+  .wg { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; padding: 0 4px; border: 1px solid currentColor; margin-left: 6px; color: var(--dim); white-space: nowrap; cursor: help; }
+  .wg.wg-left { color: var(--left); } .wg.wg-right { color: var(--right); } .wg.wg-loaded, .wg.wg-mixed { color: var(--amber); }
   .lean.o { background: none !important; border: 1px solid currentColor; padding: 0 4px; font-size: 9.5px; }
   .lean.o.far-left { color: var(--far-left); } .lean.o.left { color: var(--left); } .lean.o.lean-left { color: var(--lean-left); } .lean.o.center { color: var(--center); }
   .lean.o.lean-right { color: var(--lean-right); } .lean.o.right { color: var(--right); } .lean.o.far-right { color: var(--far-right); }
@@ -709,7 +711,7 @@ const reg = a => { byLink.set(a.link, a); return a.link; };
 function kicker(a) {
   const kind = articleKind(a);
   const dot = a.lean ? `<i class="ldot" style="background:${LEAN_COLORS[a.lean]}" title="${esc(a.source)} is rated ${esc(a.lean)}"></i>` : '';
-  return `<div class="kicker">${kind ? `<span class="kind">${kind}</span>` : ''}<span class="src">${dot}${esc(a.source)}</span>${lock(a)}<span class="t">${ago(a.published)}</span>${compareFlag(a)}</div>`;
+  return `<div class="kicker">${kind ? `<span class="kind">${kind}</span>` : ''}<span class="src">${dot}${esc(a.source)}</span>${lock(a)}<span class="t">${ago(a.published)}</span>${gradeChip(a)}${compareFlag(a)}</div>`;
 }
 const imgTag = a => a.image ? `<img src="${esc(a.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onload="if (this.naturalWidth && this.naturalWidth < 300) imgFailed(this)" onerror="imgFailed(this)">` : '';
 // A dead image link drops that picture; if it was a top-of-page slot, re-lay out so a story with a working picture leads.
@@ -798,8 +800,8 @@ function spinBody(c, reading) {
   const m = c.market;
   return `${horseshoe(c)}
     ${c.outlets.map(o => o.link === reading
-      ? `<div class="outlet here"><div class="o-meta">${leanPill(o.lean)}<span class="o-src">${esc(o.source)}</span><span class="here-tag">You're reading this</span></div><div class="o-title">${esc(o.title)}</div></div>`
-      : `<a class="outlet" href="${esc(reg(o))}" target="_blank" rel="noopener" data-read><div class="o-meta">${leanPill(o.lean)}<span class="o-src">${esc(o.source)}</span>${lock(o)}</div><div class="o-title">${esc(o.title)}</div></a>`).join('')}
+      ? `<div class="outlet here"><div class="o-meta">${leanPill(o.lean)}<span class="o-src">${esc(o.source)}</span>${gradeChip(o)}<span class="here-tag">You're reading this</span></div><div class="o-title">${esc(o.title)}</div></div>`
+      : `<a class="outlet" href="${esc(reg(o))}" target="_blank" rel="noopener" data-read><div class="o-meta">${leanPill(o.lean)}<span class="o-src">${esc(o.source)}</span>${lock(o)}${gradeChip(o)}</div><div class="o-title">${esc(o.title)}</div></a>`).join('')}
     ${note}
     ${c.horseshoe ? `<div class="shoe-note"><b>Horseshoe</b>${esc(c.horseshoe)}</div>` : ''}
     ${facts ? `<div class="facts">${facts}</div>` : ''}
@@ -845,7 +847,7 @@ function sideCols(c) {
   return `<div class="es-cols">${['left', 'center', 'right'].map(side => {
     const os = c.outlets.filter(o => SIDE_OF(o.lean) === side);
     return `<div class="es-col ${side}"><div class="es-col-h">${SIDE_LABEL[side]}</div>${os.length
-      ? os.map(o => `<a class="es-o" href="${esc(reg(o))}" target="_blank" rel="noopener" data-read>${leanPill(o.lean)}<span class="es-src">${esc(o.source)}</span>${lock(o)}<span class="es-t">${esc(o.title)}</span></a>`).join('')
+      ? os.map(o => `<a class="es-o" href="${esc(reg(o))}" target="_blank" rel="noopener" data-read>${leanPill(o.lean)}<span class="es-src">${esc(o.source)}</span>${lock(o)}${gradeChip(o)}<span class="es-t">${esc(o.title)}</span></a>`).join('')
       : `<div class="es-none">No coverage from this side</div>`}</div>`;
   }).join('')}</div>`;
 }
@@ -1085,6 +1087,24 @@ function articleKind(a) {
   return '';
 }
 const own = (a, where) => headlineScan(a).findings.filter(f => !f.quoted && (where === 'headline' ? f.pi === 0 : f.pi > 0));
+// The story's own grade: the headline and summary's own wording (quoted or attributed words don't count),
+// separate from the outlet's overall rating. A left-rated outlet can run a neutral headline and vice versa.
+function wordGrade(a) {
+  const f = [...own(a, 'headline'), ...own(a, 'summary')];
+  const n = side => f.filter(x => x.side === side).length;
+  const l = n('left'), r = n('right'), ld = n('loaded');
+  const side = l > r ? 'left' : r > l ? 'right' : l ? 'mixed' : ld ? 'loaded' : 'neutral';
+  const label = { left: 'Left-coded wording', right: 'Right-coded wording', mixed: 'Mixed wording', loaded: 'Loaded wording', neutral: 'Neutral wording' }[side];
+  const words = [...new Set(f.map(x => x.text.toLowerCase()))].slice(0, 4);
+  return { side, label, words };
+}
+function gradeChip(a) {
+  const g = wordGrade(a);
+  const why = `Graded on this story's own words (headline + summary), not on who wrote it. Quotes don't count.` +
+    (g.words.length ? ` Flagged: ${g.words.map(w => `"${w}"`).join(', ')}.` : ' No slanted or loaded words found.') +
+    (a.lean ? ` The outlet overall is rated ${a.lean}.` : '');
+  return `<span class="wg wg-${g.side}" title="${esc(why)}">${g.label}</span>`;
+}
 function headlineRead(a) {
   const n = side => own(a, 'headline').filter(f => f.side === side).length;
   const left = n('left'), right = n('right'), loaded = n('loaded');
