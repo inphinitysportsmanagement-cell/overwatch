@@ -23,7 +23,7 @@ const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 Chro
 // desk 'compare' = outlets used only for Spin Check, not shown in the main feed.
 const SOURCES = [
   // Israel & Middle East
-  { name: 'Times of Israel', desk: 'israel', lean: 'center', rated: 'AllSides', url: 'https://www.timesofisrael.com/feed/' },
+  { name: 'Times of Israel', desk: 'israel', lean: 'center', rated: 'AllSides', url: 'https://www.timesofisrael.com/feed/', gnews: 'www.timesofisrael.com' },
   { name: 'Jerusalem Post', desk: 'israel', lean: 'center', rated: 'AllSides', url: 'https://www.jpost.com/rss/rssfeedsfrontpage.aspx' },
   { name: 'JNS', desk: 'israel', lean: 'lean right', rated: 'Media Bias/Fact Check', url: 'https://www.jns.org/feed/' },
   { name: 'Israel National News', desk: 'israel', lean: 'lean right', rated: 'Media Bias/Fact Check', url: 'https://www.israelnationalnews.com/Rss.aspx' },
@@ -48,7 +48,7 @@ const SOURCES = [
   // The rest of the horseshoe, for Spin Check only
   { name: 'Mondoweiss', desk: 'compare', lean: 'far left', rated: 'Media Bias/Fact Check', url: 'https://mondoweiss.net/feed/' },
   { name: 'Electronic Intifada', desk: 'compare', lean: 'far left', rated: 'Media Bias/Fact Check', url: 'https://electronicintifada.net/rss.xml' },
-  { name: '+972 Magazine', desk: 'compare', lean: 'left', rated: 'Media Bias/Fact Check', url: 'https://www.972mag.com/feed/' },
+  { name: '+972 Magazine', desk: 'compare', lean: 'left', rated: 'Media Bias/Fact Check', url: 'https://www.972mag.com/feed/', gnews: '972mag.com' },
   { name: 'Haaretz', desk: 'compare', lean: 'lean left', rated: 'Media Bias/Fact Check', paywall: true, url: 'https://www.haaretz.com/srv/haaretz-latest-headlines' },
   { name: 'The Forward', desk: 'compare', lean: 'lean left', rated: 'Media Bias/Fact Check', url: 'https://forward.com/feed/' },
   { name: 'CBS News', desk: 'compare', lean: 'lean left', rated: 'AllSides', url: 'https://www.cbsnews.com/latest/rss/world' },
@@ -170,9 +170,38 @@ async function fetchTelegram(src) {
   }).filter(Boolean).slice(0, 25);
 }
 
+// Some outlets' Cloudflare blocks a browser-looking request from a data center (that's what Vercel is).
+// So on a 403 we ask again, saying plainly that we're a feed reader; if the outlet still says no and has a
+// `gnews` site, we read Google News's public feed of that outlet's headlines instead (gnews: the site to search).
+const FEED_UA = 'JNMC-RSS-Reader/1.0 (+https://jnmc.cc)';
+async function getFeedXml(src) {
+  try { return await (await get(src.url)).text(); }
+  catch (err) {
+    if (!/HTTP 403/.test(err.message)) throw err;
+    try {
+      const res = await fetch(src.url, { headers: { 'User-Agent': FEED_UA, Accept: 'application/rss+xml, application/xml, text/xml' }, signal: AbortSignal.timeout(15000) });
+      if (res.ok) return await res.text();
+    } catch {}
+    throw err;
+  }
+}
+
+async function fetchGoogleNews(src) {
+  const q = encodeURIComponent(`site:${src.gnews} when:2d`);
+  const xml = await (await get(`https://news.google.com/rss/search?q=${q}&hl=en-US&gl=US&ceid=US:en`)).text();
+  return (xml.match(/<item[\s>][\s\S]*?<\/item>/gi) || []).slice(0, 25).map(item => {
+    const title = strip(tag(item, 'title')).replace(/\s+-\s+[^-]+$/, ''); // drop " - The Times of Israel"
+    const date = new Date(strip(tag(item, 'pubDate') || ''));
+    return { title, summary: '', link: strip(tag(item, 'link') || ''), image: null, source: src.name, desk: src.desk, lean: src.lean || null, via: 'Google News',
+      ...(src.paywall && { paywall: true }), published: isNaN(date) ? Date.now() : Math.min(+date, Date.now()) };
+  }).filter(a => a.title.split(/\s+/).length >= 4 && a.link.startsWith('http')); // skip author and section pages
+}
+
 async function fetchFeed(src) {
   if (src.telegram) return fetchTelegram(src);
-  const xml = await (await get(src.url)).text();
+  let xml;
+  try { xml = await getFeedXml(src); }
+  catch (err) { if (src.gnews) return fetchGoogleNews(src); throw err; }
   // RSS <item>s, or Atom <entry>s (Vox and a few others publish Atom).
   const items = xml.match(/<item[\s>][\s\S]*?<\/item>/gi) || xml.match(/<entry[\s>][\s\S]*?<\/entry>/gi) || [];
   return items.slice(0, 25).map(item => {
@@ -318,9 +347,10 @@ async function gather() {
     return {
       name: s.name, desk: s.desk, lean: s.lean || null, rated: s.rated || null, paywall: !!s.paywall, ok: results[i].status === 'fulfilled', count: items.length,
       ...(results[i].status === 'rejected' && { error: String(results[i].reason?.cause?.code || results[i].reason?.message || results[i].reason).slice(0, 120) }), // why a feed failed (shown in edition.json)
-      domains: [...new Set([s.url, s.telegram && 'https://t.me', items[0]?.link].filter(Boolean)
+      domains: [...new Set([s.url, s.telegram && 'https://t.me', items.find(a => !a.via)?.link].filter(Boolean)
         .map(u => new URL(u).hostname.replace(/^(www|rss|feeds|moxie)\./, '')).concat(s.also || []))],
-      frameable: !!s.telegram || (items[0] ? await canFrame(items[0].link) : false), // Telegram uses its embed page
+      ...(items.some(a => a.via) && { via: 'Google News' }), // the outlet blocked us; headlines came from Google News
+      frameable: !!s.telegram || (items[0] && !items[0].via ? await canFrame(items[0].link) : false), // Telegram uses its embed page
     };
   }));
 
