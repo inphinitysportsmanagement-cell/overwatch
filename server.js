@@ -175,7 +175,10 @@ function score(a, now) {
   const titleHits = INTERESTS.filter(i => i.re.test(a.title)).reduce((s, i) => s + i.weight, 0);
   const hoursOld = Math.max(0, (now - a.published) / 36e5);
   a.tags = tags.map(t => t.tag);
-  a.score = titleHits * 2 + tags.reduce((s, i) => s + i.weight, 0) + (a.image ? 2 : 0) - hoursOld * 0.6 - (a.paywall ? 4 : 0); // free-to-read first
+  // Fresh news first: a gentle penalty for the first 12 hours, then a steep one, so yesterday's
+  // stories only fill space when there's nothing newer.
+  const agePenalty = hoursOld * 0.6 + Math.max(0, hoursOld - 12) * 1.5;
+  a.score = titleHits * 2 + tags.reduce((s, i) => s + i.weight, 0) + (a.image ? 2 : 0) - agePenalty - (a.paywall ? 4 : 0); // free-to-read first
   return a;
 }
 
@@ -306,7 +309,7 @@ async function gather() {
   const seenTitles = new Set();
   const articles = results
     .flatMap(r => (r.status === 'fulfilled' ? r.value : []))
-    .filter(a => now - a.published < 3 * 864e5) // last 3 days
+    .filter(a => now - a.published < 2 * 864e5) // last 2 days
     .filter(a => !/\b(sponsored|paid (content|post)|advertorial|partner content)\b/i.test(a.title)) // ads dressed as articles
     .filter(a => { const k = a.title.toLowerCase().slice(0, 60); if (seenTitles.has(k)) return false; seenTitles.add(k); return true; })
     .map(a => score(a, now))

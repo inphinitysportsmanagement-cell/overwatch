@@ -1532,7 +1532,9 @@ async function fetchEdition() {
     // which can take up to a minute right after the site is updated.
     if (!state.edition) {
       const saved = await fetch('edition.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).catch(() => null);
-      if (saved && !saved.error) { state.edition = saved; state.waitingLive = true; renderChrome(); renderFeed(); renderSpin(); renderOdds(); renderTicker(); tickClock(); }
+      // Only show the saved copy if it's recent; otherwise wait for the live build rather than show old news.
+      if (saved && !saved.error && Date.now() - saved.builtAt < 3 * 36e5) { state.edition = saved; state.waitingLive = true; renderChrome(); renderFeed(); renderSpin(); renderOdds(); renderTicker(); tickClock(); }
+      else $('feed').innerHTML = `<div class="empty"><span class="spinner"></span> Getting the latest news…</div>`;
     }
     let e = await fetch('api/edition').then(r => (r.ok ? r.json() : null)).catch(() => null);
     if (!e || e.error) e = await (await fetch('edition.json?t=' + Date.now(), { cache: 'no-store' })).json();
