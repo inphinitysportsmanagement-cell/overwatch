@@ -317,6 +317,7 @@ async function gather() {
     const items = results[i].value || [];
     return {
       name: s.name, desk: s.desk, lean: s.lean || null, rated: s.rated || null, paywall: !!s.paywall, ok: results[i].status === 'fulfilled', count: items.length,
+      ...(results[i].status === 'rejected' && { error: String(results[i].reason?.cause?.code || results[i].reason?.message || results[i].reason).slice(0, 120) }), // why a feed failed (shown in edition.json)
       domains: [...new Set([s.url, s.telegram && 'https://t.me', items[0]?.link].filter(Boolean)
         .map(u => new URL(u).hostname.replace(/^(www|rss|feeds|moxie)\./, '')).concat(s.also || []))],
       frameable: !!s.telegram || (items[0] ? await canFrame(items[0].link) : false), // Telegram uses its embed page
